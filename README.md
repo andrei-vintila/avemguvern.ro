@@ -110,9 +110,13 @@ plus the raw status JSON.
 
 Built into the Worker:
 
-- **Edge caching** — `GET /api/status` is cached at the Cloudflare edge for 60s
-  (`caches.default`), so a read flood hits KV at most ~once/minute. A successful
-  `POST` invalidates the cache so updates show immediately.
+- **Edge caching** — `GET /api/status` is cached at the Cloudflare edge via the
+  Cache API (`caches.default`) for `CACHE_TTL_SECONDS` (default 60), so a read flood
+  hits KV at most ~once/minute per data center. A successful `POST` purges the cache
+  so updates show immediately. The Cache API is per-colo, so a write purges only the
+  data center that served it; other regions refresh when their TTL expires (hence the
+  modest default — raise it in `wrangler.jsonc` vars for more offload if you can
+  tolerate longer cross-region staleness after a change).
 - **Per-IP rate limiting** — native Workers rate-limit bindings: reads 120/min,
   writes 10/min (the write limit also throttles token guessing). Over-limit → `429`.
 - **Hardened writes** — `POST` only accepts the known fields
@@ -120,12 +124,18 @@ Built into the Worker:
   types, clamps strings to 200 chars, rejects bodies over 2 KB (`413`), and compares
   the admin token in constant time. A leaked token can't store arbitrary or huge data.
 
-Recommended at the Cloudflare edge (dashboard — stops abuse *before* the Worker runs,
-which is what protects request quota and cost):
+Recommended at the Cloudflare edge (dashboard):
 
-- **Cache Rule** on `/api/status` so reads are served from the CDN without invoking the Worker.
-- **WAF Rate Limiting rule** (e.g. per-IP threshold on `/api/*` and `/mcp`).
+- **WAF Rate Limiting rule** (e.g. per-IP threshold on `/api/*` and `/mcp`) — this is
+  the layer that drops abusive traffic *before* it counts against your quota.
 - **Bot Fight Mode** under Security → Bots.
+
+> Note: a zone-level **Cache Rule cannot bypass the Worker** here — for a Worker-owned
+> route the Worker always executes before the cache is checked
+> ([docs](https://developers.cloudflare.com/cache/interaction-cloudflare-products/workers-cache-rules/)).
+> The in-Worker Cache API above is the effective edge-cache mechanism; it saves KV
+> operations but each request still counts as one Worker invocation. To cut invocations
+> themselves, use the WAF rate-limit rule.
 
 ## Buy Me a Coffee
 

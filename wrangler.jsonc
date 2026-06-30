@@ -10,6 +10,10 @@
     "directory": "./public",
     "binding": "ASSETS"
   },
+  "vars": {
+    // Edge-cache TTL (seconds) for GET /api/status. 0 disables caching.
+    "CACHE_TTL_SECONDS": 60
+  },
   "kv_namespaces": [
     {
       "binding": "GOV_STATUS",

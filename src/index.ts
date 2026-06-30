@@ -23,6 +23,22 @@ export interface Env {
   // Guards degrade gracefully (no-op) if a binding is absent.
   READ_LIMITER?: RateLimit;
   WRITE_LIMITER?: RateLimit;
+  // Edge-cache TTL for GET /api/status, in seconds (see wrangler.jsonc vars).
+  CACHE_TTL_SECONDS?: number;
+}
+
+/**
+ * Edge-cache TTL. Writes purge the cache in the data center that handled the
+ * POST, but the Cache API is per-colo — other colos serve cached content until
+ * it expires. 60s keeps every region consistent within a minute; raise it for
+ * more offload if you can tolerate longer cross-region staleness after an update.
+ */
+const DEFAULT_CACHE_TTL = 60;
+
+function cacheTtl(env: Env): number {
+  const n = Number(env.CACHE_TTL_SECONDS);
+  if (!Number.isFinite(n) || n < 0) return DEFAULT_CACHE_TTL;
+  return Math.min(n, 3600);
 }
 
 interface GovernmentStatus {
@@ -166,10 +182,14 @@ async function handleGetStatus(
   if (cached) return cached;
 
   const status = await readStatus(env);
+  const ttl = cacheTtl(env);
   const response = json(status, {
-    headers: { "Cache-Control": "public, max-age=60, s-maxage=60" },
+    headers: {
+      // max-age: browser cache; s-maxage: Cloudflare edge cache (Cache API TTL).
+      "Cache-Control": `public, max-age=${ttl}, s-maxage=${ttl}, stale-while-revalidate=600`,
+    },
   });
-  ctx.waitUntil(cache.put(cacheKey, response.clone()));
+  if (ttl > 0) ctx.waitUntil(cache.put(cacheKey, response.clone()));
   return response;
 }
 
