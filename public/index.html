@@ -185,9 +185,10 @@
         gap: 1.1em;
       }
       .prompt {
-        font-size: clamp(1rem, 3.5vw, 1.35rem);
+        font-size: clamp(1.15rem, 4vw, 1.6rem);
+        font-weight: 700;
         color: var(--fg);
-        opacity: 0.85;
+        opacity: 0.9;
       }
       .choices { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; }
       .opt {
@@ -658,6 +659,30 @@
         revealTimer = setTimeout(() => wrap.classList.remove("revealed"), 3500);
       }
 
+      // On touch, no hover means cutouts are invisible until tapped. So while
+      // idle on the party step we auto-cycle through them (one at a time) as an
+      // attract loop, and stop the moment the user interacts.
+      const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      let idleTimer = null;
+      function stopIdle() {
+        if (idleTimer) {
+          clearInterval(idleTimer);
+          idleTimer = null;
+        }
+      }
+      function startIdle() {
+        stopIdle();
+        if (canHover || reduceMotion) return; // hover devices / reduced-motion: skip
+        const wraps = [...partyPills.querySelectorAll(".party-wrap")].filter((w) =>
+          w.querySelector(".leader-layer"),
+        );
+        if (!wraps.length) return;
+        let i = 0;
+        const step = () => revealWrap(wraps[i++ % wraps.length]);
+        step();
+        idleTimer = setInterval(step, 2600);
+      }
+
       // Generic person silhouette used until a licensed photo is dropped in.
       const PERSON_SVG =
         '<svg viewBox="0 0 24 24" fill="rgba(255,255,255,0.9)" aria-hidden="true">' +
@@ -725,6 +750,7 @@
           p.seats +
           "</span>";
         b.addEventListener("click", () => {
+          stopIdle(); // user is interacting now
           if (selected.has(p.id)) selected.delete(p.id);
           else selected.add(p.id);
           b.setAttribute("aria-pressed", selected.has(p.id) ? "true" : "false");
@@ -782,22 +808,27 @@
         const act = e.target.closest("[data-act]")?.dataset.act;
         if (!act) return;
         if (act === "meh") {
+          stopIdle();
           prompt.hidden = true;
           show(stepMeh);
         } else if (act === "want") {
-          prompt.textContent = "De care?";
+          prompt.textContent = "Cu ce sa fie?";
           show(stepParties);
           updateTally();
+          startIdle(); // attract loop on touch until first interaction
         } else if (act === "confirm-yes") {
+          stopIdle();
           prompt.hidden = true;
           show(stepFinal);
         } else if (act === "confirm-no") {
-          prompt.textContent = "De care?";
+          prompt.textContent = "Cu ce sa fie?";
           show(stepParties);
+          startIdle();
         }
       });
 
       btnAnticipate.addEventListener("click", () => {
+        stopIdle();
         prompt.textContent = "Esti sigur?";
         show(stepConfirm);
       });
