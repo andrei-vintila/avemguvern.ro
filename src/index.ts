@@ -76,6 +76,8 @@ const MAX_BODY_BYTES = 2048;
 
 // Valid party ids (for validating crowd-sourced joke submissions).
 const PARTY_IDS = ["PSD", "AUR", "PNL", "USR", "SOS", "UDMR", "POT", "Minoritati"];
+// Non-party joke contexts (e.g. the early-elections message).
+const JOKE_TOPICS = ["anticipate"];
 const MAX_JOKE_LEN = 160;
 const JOKE_PREFIX = "joke:";
 
@@ -274,14 +276,18 @@ async function handlePostJoke(request: Request, env: Env): Promise<Response> {
   const combo = Array.isArray(parsed?.combo)
     ? [...new Set(parsed.combo.filter((id: unknown) => PARTY_IDS.includes(id as string)))]
     : [];
+  const topic =
+    typeof parsed?.topic === "string" && JOKE_TOPICS.includes(parsed.topic) ? parsed.topic : "";
   if (!joke) return json({ error: "Joke required" }, { status: 400 });
-  if (combo.length < 2) return json({ error: "Pick at least two parties" }, { status: 400 });
+  if (combo.length < 2 && !topic) {
+    return json({ error: "Pick at least two parties or a valid topic" }, { status: 400 });
+  }
 
+  const entry: Record<string, unknown> = { joke, at: new Date().toISOString() };
+  if (combo.length >= 2) entry.combo = combo;
+  if (topic) entry.topic = topic;
   const key = `${JOKE_PREFIX}${new Date().toISOString()}:${crypto.randomUUID()}`;
-  await env.GOV_STATUS.put(
-    key,
-    JSON.stringify({ combo, joke, at: new Date().toISOString() }),
-  );
+  await env.GOV_STATUS.put(key, JSON.stringify(entry));
   return json({ ok: true });
 }
 

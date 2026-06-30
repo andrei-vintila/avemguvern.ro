@@ -394,7 +394,9 @@
         color: #ffb86b;
         max-width: 360px;
       }
-      #propose { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+      #step-final { display: flex; flex-direction: column; align-items: center; gap: 1.2em; }
+      #propose,
+      #propose-final { display: flex; flex-direction: column; align-items: center; gap: 10px; }
       .propose-open {
         font: inherit;
         font-size: 0.8rem;
@@ -483,7 +485,17 @@
           <button class="opt" type="button" data-act="confirm-no">Hai, ca am glumit cu muia aia...</button>
         </div>
 
-        <p class="result" id="step-final" hidden>🗳️ Alegeri anticipate! Decide poporul, apoi ne plangem 4 ani.</p>
+        <div id="step-final" hidden>
+          <p class="result">🗳️ Alegeri anticipate! Decide poporul, apoi ne plangem 4 ani.</p>
+          <div id="propose-final">
+            <button class="propose-open" type="button" id="propose-final-open">✍️ Ai un banc mai bun? Propune-l.</button>
+            <form class="propose-form" id="propose-final-form" hidden>
+              <input id="propose-final-input" type="text" maxlength="160" autocomplete="off"
+                     placeholder="Bancul tau despre alegeri anticipate..." />
+              <button type="submit" class="propose-send">Trimite</button>
+            </form>
+          </div>
+        </div>
       </div>
     </main>
 
@@ -790,30 +802,42 @@
         show(stepConfirm);
       });
 
-      proposeOpen.addEventListener("click", () => {
-        proposeOpen.hidden = true;
-        proposeForm.hidden = false;
-        proposeInput.focus();
-      });
-      proposeForm.addEventListener("submit", async (e) => {
-        e.preventDefault();
-        const joke = proposeInput.value.trim();
-        if (!joke) return;
-        const comboIds = PARTIES.filter((p) => selected.has(p.id)).map((p) => p.id);
-        try {
-          await fetch("/api/joke", {
-            method: "POST",
-            headers: { "content-type": "application/json" },
-            body: JSON.stringify({ combo: comboIds, joke }),
-          });
-          showToast("Mersi! Bancul tau a fost trimis. 🙌");
-        } catch {
-          showToast("Hmm, n-a mers. Mai incearca.");
-        }
-        proposeInput.value = "";
-        proposeForm.hidden = true;
-        proposeOpen.hidden = false;
-      });
+      function wirePropose(open, form, input, payloadFn) {
+        open.addEventListener("click", () => {
+          open.hidden = true;
+          form.hidden = false;
+          input.focus();
+        });
+        form.addEventListener("submit", async (e) => {
+          e.preventDefault();
+          const joke = input.value.trim();
+          if (!joke) return;
+          try {
+            await fetch("/api/joke", {
+              method: "POST",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({ ...payloadFn(), joke }),
+            });
+            showToast("Mersi! Bancul tau a fost trimis. 🙌");
+          } catch {
+            showToast("Hmm, n-a mers. Mai incearca.");
+          }
+          input.value = "";
+          form.hidden = true;
+          open.hidden = false;
+        });
+      }
+      // Combo jokes (uses the currently selected parties).
+      wirePropose(proposeOpen, proposeForm, proposeInput, () => ({
+        combo: PARTIES.filter((p) => selected.has(p.id)).map((p) => p.id),
+      }));
+      // Early-elections message joke.
+      wirePropose(
+        document.getElementById("propose-final-open"),
+        document.getElementById("propose-final-form"),
+        document.getElementById("propose-final-input"),
+        () => ({ topic: "anticipate" }),
+      );
 
       // Reveal the flow only when JS is available.
       interact.hidden = false;
