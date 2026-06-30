@@ -98,9 +98,16 @@ async function isRateLimited(
   }
 }
 
+// Shown to anyone who trips the rate limiter. Add more lines to rotate randomly.
+const RATE_LIMIT_MESSAGES = [
+  "Ai rabdare, ca la guvern. Mai incearca peste un minut.",
+];
+
 function tooManyRequests(): Response {
+  const message =
+    RATE_LIMIT_MESSAGES[Math.floor(Math.random() * RATE_LIMIT_MESSAGES.length)];
   return json(
-    { error: "Too Many Requests" },
+    { error: "Too Many Requests", message },
     { status: 429, headers: { "Retry-After": "60" } },
   );
 }
