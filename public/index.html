@@ -322,12 +322,14 @@
         white-space: nowrap;
       }
       .party-wrap:hover .leader:not(.peek),
-      .party-wrap:focus-within .leader:not(.peek) {
+      .party-wrap:focus-within .leader:not(.peek),
+      .party-wrap.revealed .leader:not(.peek) {
         transform: translateY(0) scale(1);
         opacity: 1;
       }
       .party-wrap:hover .leader.front,
-      .party-wrap:focus-within .leader.front {
+      .party-wrap:focus-within .leader.front,
+      .party-wrap.revealed .leader.front {
         transform: translateY(0) scale(1.05);
         transition-delay: 0.12s;
       }
@@ -341,7 +343,8 @@
       }
       /* 500ms after hover: rise slowly (500ms), hold (500ms), slide down + fade (200ms). */
       .party-wrap:hover .leader.peek,
-      .party-wrap:focus-within .leader.peek {
+      .party-wrap:focus-within .leader.peek,
+      .party-wrap.revealed .leader.peek {
         animation: peek 1200ms ease-in-out 500ms;
       }
       @keyframes peek {
@@ -353,9 +356,11 @@
       @media (prefers-reduced-motion: reduce) {
         .leader { transition: opacity 0.2s ease; transform: none; }
         .party-wrap:hover .leader:not(.peek),
-        .party-wrap:focus-within .leader:not(.peek) { transform: none; }
+        .party-wrap:focus-within .leader:not(.peek),
+        .party-wrap.revealed .leader:not(.peek) { transform: none; }
         .party-wrap:hover .leader.peek,
-        .party-wrap:focus-within .leader.peek { animation: none; }
+        .party-wrap:focus-within .leader.peek,
+        .party-wrap.revealed .leader.peek { animation: none; }
       }
       .party:hover {
         background: color-mix(in srgb, var(--c) 30%, var(--bg));
@@ -552,6 +557,22 @@
         return 0.299 * r + 0.587 * g + 0.114 * b > 150 ? "#0a0a0f" : "#ffffff";
       }
 
+      // Touch devices have no hover: tapping a pill reveals that one leader
+      // (one at a time), then it auto-hides. Selection still toggles normally.
+      const canHover = window.matchMedia("(hover: hover)").matches;
+      let revealTimer;
+      function revealWrap(wrap) {
+        document.querySelectorAll(".party-wrap.revealed").forEach((w) => {
+          if (w !== wrap) w.classList.remove("revealed");
+        });
+        // Reflow so one-shot animations (peek / "It's gone") replay on each tap.
+        wrap.classList.remove("revealed");
+        void wrap.offsetWidth;
+        wrap.classList.add("revealed");
+        clearTimeout(revealTimer);
+        revealTimer = setTimeout(() => wrap.classList.remove("revealed"), 3500);
+      }
+
       // Generic person silhouette used until a licensed photo is dropped in.
       const PERSON_SVG =
         '<svg viewBox="0 0 24 24" fill="rgba(255,255,255,0.9)" aria-hidden="true">' +
@@ -623,6 +644,7 @@
           else selected.add(p.id);
           b.setAttribute("aria-pressed", selected.has(p.id) ? "true" : "false");
           updateTally();
+          if (!canHover) revealWrap(wrap);
         });
         wrap.appendChild(b);
         partyPills.appendChild(wrap);
