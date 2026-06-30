@@ -307,10 +307,14 @@
       .leader.gone {
         width: auto;
         height: auto;
-        padding-bottom: 6px;
-        border: none;
-        background: none;
-        border-radius: 0;
+        /* lift the short text above its pill; a chip background keeps it readable
+           even where it overlaps the pill in the row above */
+        margin-bottom: 34px;
+        padding: 5px 11px;
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        background: rgba(10, 10, 15, 0.92);
+        border-radius: 999px;
+        box-shadow: 0 6px 16px rgba(0, 0, 0, 0.5);
         filter: none;
         font-size: 0.82rem;
         font-weight: 800;
