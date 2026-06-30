@@ -209,6 +209,12 @@
         transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
       }
       .opt:hover { border-color: var(--ro-yellow); color: var(--ro-yellow); }
+      #step-parties {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 1.1em;
+      }
       .pills {
         display: flex;
         flex-wrap: wrap;
@@ -216,26 +222,30 @@
         justify-content: center;
         max-width: 580px;
       }
+      /* --c (party color) and --c-fg (readable text on fill) are set per pill in JS. */
       .party {
         font: inherit;
         font-weight: 600;
         font-size: 0.95rem;
         cursor: pointer;
-        background: transparent;
-        color: var(--muted);
-        border: 1.5px solid #33334a;
+        color: #f5f5f7;
+        background: color-mix(in srgb, var(--c) 15%, transparent);
+        border: 1.5px solid color-mix(in srgb, var(--c) 60%, transparent);
         border-radius: 999px;
         padding: 8px 15px;
         transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
       }
       .party .seats { opacity: 0.6; font-weight: 500; }
-      .party:hover { color: var(--fg); border-color: #55556e; }
-      .party[aria-pressed="true"] {
-        background: var(--ro-yellow);
-        color: #1a1a1a;
-        border-color: var(--ro-yellow);
+      .party:hover {
+        background: color-mix(in srgb, var(--c) 28%, transparent);
+        border-color: var(--c);
       }
-      .party[aria-pressed="true"] .seats { opacity: 0.75; }
+      .party[aria-pressed="true"] {
+        background: var(--c);
+        border-color: var(--c);
+        color: var(--c-fg);
+      }
+      .party[aria-pressed="true"] .seats { opacity: 0.8; }
       .tally { font-size: 0.9rem; color: var(--muted); }
       .tally.majority { color: var(--ro-yellow); font-weight: 600; }
       .opt.anticipate { border-color: var(--ro-red); color: #ff6b7a; }
@@ -355,15 +365,16 @@
       // ---- Interactive opinion flow ----
       // Combined Parliament (Chamber of Deputies + Senate), 2024 election.
       // Total 465 seats; absolute majority = 233.
+      // color = each party's approximate main brand color.
       const PARTIES = [
-        { id: "PSD", seats: 122 },
-        { id: "AUR", seats: 91 },
-        { id: "PNL", seats: 71 },
-        { id: "USR", seats: 59 },
-        { id: "SOS", seats: 40 },
-        { id: "UDMR", seats: 32 },
-        { id: "POT", seats: 31 },
-        { id: "Minoritati", seats: 19 },
+        { id: "PSD", seats: 122, color: "#E4002B" }, // red
+        { id: "AUR", seats: 91, color: "#1B3B6F" }, // navy
+        { id: "PNL", seats: 71, color: "#F5C518" }, // yellow
+        { id: "USR", seats: 59, color: "#0096D6" }, // blue
+        { id: "SOS", seats: 40, color: "#6A2C91" }, // purple
+        { id: "UDMR", seats: 32, color: "#E8730C" }, // orange
+        { id: "POT", seats: 31, color: "#2E9E5B" }, // green
+        { id: "Minoritati", seats: 19, color: "#8A8A99" }, // gray
       ];
       const MAJORITY = 233;
 
@@ -379,6 +390,15 @@
       const btnAnticipate = document.getElementById("btn-anticipate");
       const selected = new Set();
 
+      // Pick black or white text for a filled pill, based on color luminance.
+      function readableOn(hex) {
+        const n = parseInt(hex.slice(1), 16);
+        const r = (n >> 16) & 255;
+        const g = (n >> 8) & 255;
+        const b = n & 255;
+        return 0.299 * r + 0.587 * g + 0.114 * b > 150 ? "#0a0a0f" : "#ffffff";
+      }
+
       // Build party pills once.
       PARTIES.forEach((p) => {
         const b = document.createElement("button");
@@ -386,6 +406,8 @@
         b.className = "party";
         b.setAttribute("aria-pressed", "false");
         b.dataset.party = p.id;
+        b.style.setProperty("--c", p.color);
+        b.style.setProperty("--c-fg", readableOn(p.color));
         b.innerHTML = p.id + ' <span class="seats">' + p.seats + "</span>";
         b.addEventListener("click", () => {
           if (selected.has(p.id)) selected.delete(p.id);
