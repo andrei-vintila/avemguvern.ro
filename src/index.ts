@@ -18,6 +18,8 @@ interface RateLimit {
 export interface Env {
   ASSETS: Fetcher;
   GOV_STATUS: KVNamespace;
+  // Crowd-sourced joke suggestions (separate from the status KV).
+  SUGGESTIONS?: D1Database;
   ADMIN_TOKEN?: string;
   // Optional — configured via [[unsafe.bindings]] in wrangler.jsonc.
   // Guards degrade gracefully (no-op) if a binding is absent.
@@ -79,7 +81,6 @@ const PARTY_IDS = ["PSD", "AUR", "PNL", "USR", "SOS", "UDMR", "POT", "Minoritati
 // Non-party joke contexts (e.g. the early-elections message).
 const JOKE_TOPICS = ["anticipate"];
 const MAX_JOKE_LEN = 160;
-const JOKE_PREFIX = "joke:";
 
 // ---------------------------------------------------------------------------
 // Abuse guards
@@ -256,6 +257,9 @@ async function handlePostStatus(
 // ---------------------------------------------------------------------------
 
 async function handlePostJoke(request: Request, env: Env): Promise<Response> {
+  if (!env.SUGGESTIONS) {
+    return json({ error: "Suggestions store unavailable" }, { status: 503 });
+  }
   const declaredLen = Number(request.headers.get("Content-Length") ?? "0");
   if (declaredLen > MAX_BODY_BYTES) {
     return json({ error: "Payload too large" }, { status: 413 });
@@ -283,11 +287,11 @@ async function handlePostJoke(request: Request, env: Env): Promise<Response> {
     return json({ error: "Pick at least two parties or a valid topic" }, { status: 400 });
   }
 
-  const entry: Record<string, unknown> = { joke, at: new Date().toISOString() };
-  if (combo.length >= 2) entry.combo = combo;
-  if (topic) entry.topic = topic;
-  const key = `${JOKE_PREFIX}${new Date().toISOString()}:${crypto.randomUUID()}`;
-  await env.GOV_STATUS.put(key, JSON.stringify(entry));
+  await env.SUGGESTIONS.prepare(
+    "INSERT INTO suggestions (combo, topic, joke) VALUES (?, ?, ?)",
+  )
+    .bind(combo.length >= 2 ? JSON.stringify(combo) : null, topic || null, joke)
+    .run();
   return json({ ok: true });
 }
 
@@ -297,14 +301,17 @@ async function handleGetJokes(request: Request, env: Env): Promise<Response> {
   if (!env.ADMIN_TOKEN || !constantTimeEqual(token, env.ADMIN_TOKEN)) {
     return json({ error: "Unauthorized" }, { status: 401 });
   }
-  const list = await env.GOV_STATUS.list({ prefix: JOKE_PREFIX, limit: 200 });
-  const jokes = await Promise.all(
-    list.keys.map(async (k) => {
-      const v = await env.GOV_STATUS.get(k.name);
-      return v ? JSON.parse(v) : null;
-    }),
-  );
-  return json({ count: jokes.length, jokes: jokes.filter(Boolean) });
+  if (!env.SUGGESTIONS) {
+    return json({ error: "Suggestions store unavailable" }, { status: 503 });
+  }
+  const { results } = await env.SUGGESTIONS.prepare(
+    "SELECT id, combo, topic, joke, approved, created_at FROM suggestions ORDER BY created_at DESC, id DESC LIMIT 500",
+  ).all<{ id: number; combo: string | null; topic: string | null; joke: string; approved: number; created_at: string }>();
+  const jokes = results.map((r) => ({
+    ...r,
+    combo: r.combo ? JSON.parse(r.combo) : undefined,
+  }));
+  return json({ count: jokes.length, jokes });
 }
 
 // ---------------------------------------------------------------------------

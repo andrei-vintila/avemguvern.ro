@@ -20,6 +20,16 @@
       "id": "f188c870bc9843969ab26c2d63db6b36"
     }
   ],
+  // Crowd-sourced joke suggestions live in their own D1 database.
+  // Create it with: npx wrangler d1 create avemguvern-suggestions
+  // then paste the returned database_id below and apply schema.sql.
+  "d1_databases": [
+    {
+      "binding": "SUGGESTIONS",
+      "database_name": "avemguvern-suggestions",
+      "database_id": "REPLACE_WITH_D1_DATABASE_ID"
+    }
+  ],
   // Native per-IP rate limiting. namespace_id is any number unique to this
   // account; period must be 10 or 60 (seconds).
   "unsafe": {

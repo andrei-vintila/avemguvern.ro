@@ -63,14 +63,25 @@ npx wrangler login
 # 1. Create the KV namespace, then paste the returned id into wrangler.jsonc
 npx wrangler kv namespace create GOV_STATUS
 
-# 2. Set the admin token (used to authorize POST /api/status)
+# 2. Create the D1 database for joke suggestions, paste its database_id into
+#    wrangler.jsonc, then apply the schema to the remote database
+npx wrangler d1 create avemguvern-suggestions
+npx wrangler d1 execute avemguvern-suggestions --remote --file=./schema.sql
+
+# 3. Set the admin token (used to authorize POST /api/status and GET /api/jokes)
 npx wrangler secret put ADMIN_TOKEN
 
-# 3. Deploy
+# 4. Deploy
 npx wrangler deploy
 
-# 4. (optional) Seed the KV value — default already matches
+# 5. (optional) Seed the KV value — default already matches
 npm run seed
+```
+
+For local development, apply the schema to the local D1 once:
+
+```sh
+npx wrangler d1 execute avemguvern-suggestions --local --file=./schema.sql
 ```
 
 ### Custom domain
