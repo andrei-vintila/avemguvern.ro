@@ -532,7 +532,6 @@
         el.title = leader.name;
         const img = document.createElement("img");
         img.alt = leader.name;
-        img.loading = "lazy";
         img.src = "leaders/" + leader.name.toLowerCase() + ".png";
         img.addEventListener("error", () => {
           img.remove();
