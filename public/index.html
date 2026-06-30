@@ -164,7 +164,6 @@
       /* Interactive opinion flow — set apart from the verdict as a card */
       .interact {
         position: relative;
-        overflow: hidden;
         margin: 2.8em auto 0;
         width: 100%;
         max-width: 440px;
@@ -184,6 +183,7 @@
         left: 0;
         right: 0;
         height: 3px;
+        border-radius: 18px 18px 0 0;
         background: linear-gradient(
           to right,
           var(--ro-blue) 0 33.33%,
@@ -231,8 +231,10 @@
         font-weight: 600;
         font-size: 0.95rem;
         cursor: pointer;
+        position: relative;
+        z-index: 1;
         color: #f5f5f7;
-        background: color-mix(in srgb, var(--c) 15%, transparent);
+        background: color-mix(in srgb, var(--c) 16%, var(--bg));
         border: 1.5px solid color-mix(in srgb, var(--c) 60%, transparent);
         border-radius: 999px;
         padding: 6px 15px 6px 7px;
@@ -257,8 +259,83 @@
         background: var(--c-fg);
         color: var(--c);
       }
+
+      /* Leader cutouts that rise from behind the pill on hover / when selected */
+      .party-wrap { position: relative; display: inline-flex; }
+      .leader-layer {
+        position: absolute;
+        left: 50%;
+        bottom: calc(100% - 14px);
+        transform: translateX(-50%);
+        display: flex;
+        align-items: flex-end;
+        justify-content: center;
+        pointer-events: none;
+        z-index: 0;
+      }
+      .leader {
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 52px;
+        height: 52px;
+        border-radius: 50%;
+        background: color-mix(in srgb, var(--c) 26%, var(--bg));
+        border: 2px solid var(--c);
+        transform: translateY(75%) scale(0.85);
+        opacity: 0;
+        transition: transform 0.32s cubic-bezier(0.2, 0.8, 0.3, 1), opacity 0.2s ease;
+        filter: drop-shadow(0 5px 12px rgba(0, 0, 0, 0.55));
+      }
+      .leader img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
+      .leader svg { width: 30px; height: 30px; }
+      .leader.front { width: 58px; height: 58px; margin-left: -12px; z-index: 2; }
+      .leader-cap {
+        position: absolute;
+        bottom: calc(100% + 4px);
+        left: 50%;
+        transform: translateX(-50%);
+        font-size: 0.6rem;
+        font-weight: 600;
+        white-space: nowrap;
+        color: var(--fg);
+        background: rgba(0, 0, 0, 0.55);
+        padding: 1px 6px;
+        border-radius: 6px;
+        display: none;
+      }
+      .leader.ph .leader-cap { display: block; }
+      .leader.gone {
+        width: auto;
+        height: auto;
+        padding-bottom: 6px;
+        border: none;
+        background: none;
+        border-radius: 0;
+        filter: none;
+        font-size: 0.82rem;
+        font-weight: 800;
+        color: var(--fg);
+        white-space: nowrap;
+      }
+      .party-wrap:hover .leader,
+      .party-wrap:focus-within .leader {
+        transform: translateY(0) scale(1);
+        opacity: 1;
+      }
+      .party-wrap:hover .leader.front,
+      .party-wrap:focus-within .leader.front {
+        transform: translateY(0) scale(1.05);
+        transition-delay: 0.12s;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .leader { transition: opacity 0.2s ease; transform: none; }
+        .party-wrap:hover .leader,
+        .party-wrap:focus-within .leader { transform: none; }
+      }
       .party:hover {
-        background: color-mix(in srgb, var(--c) 28%, transparent);
+        background: color-mix(in srgb, var(--c) 30%, var(--bg));
         border-color: var(--c);
       }
       .party[aria-pressed="true"] {
@@ -388,15 +465,17 @@
       // Total 465 seats; absolute majority = 233.
       // Official party colors (per English Wikipedia's party-color module).
       // Minoritati is a group of minority organizations with no single color.
+      // leaders: cutouts that rise from behind the pill (front = comes in front).
+      // gone: POT just shows "It's gone!". Minoritati has neither.
       const PARTIES = [
-        { id: "PSD", seats: 122, color: "#EF3340" }, // red
-        { id: "AUR", seats: 91, color: "#FCB21F" }, // gold
-        { id: "PNL", seats: 71, color: "#FDE000" }, // yellow
-        { id: "USR", seats: 59, color: "#00AAE7" }, // blue
-        { id: "SOS", seats: 40, color: "#4DA9DA" }, // light blue
-        { id: "UDMR", seats: 32, color: "#00833E" }, // green
-        { id: "POT", seats: 31, color: "#330099" }, // indigo
-        { id: "Minoritati", seats: 19, color: "#8A8A99" }, // gray (no single color)
+        { id: "PSD", seats: 122, color: "#EF3340", leaders: [{ name: "Grindeanu" }] },
+        { id: "AUR", seats: 91, color: "#FCB21F", leaders: [{ name: "Simion" }, { name: "Georgescu", front: true }] },
+        { id: "PNL", seats: 71, color: "#FDE000", leaders: [{ name: "Bolojan" }, { name: "Siegfried", front: true }] },
+        { id: "USR", seats: 59, color: "#00AAE7", leaders: [{ name: "Fritz" }] },
+        { id: "SOS", seats: 40, color: "#4DA9DA", leaders: [{ name: "Sosoaca" }] },
+        { id: "UDMR", seats: 32, color: "#00833E", leaders: [{ name: "Kelemen" }] },
+        { id: "POT", seats: 31, color: "#330099", gone: true },
+        { id: "Minoritati", seats: 19, color: "#8A8A99" },
       ];
       const MAJORITY = 233;
 
@@ -421,8 +500,54 @@
         return 0.299 * r + 0.587 * g + 0.114 * b > 150 ? "#0a0a0f" : "#ffffff";
       }
 
+      // Generic person silhouette used until a licensed photo is dropped in.
+      const PERSON_SVG =
+        '<svg viewBox="0 0 24 24" fill="rgba(255,255,255,0.9)" aria-hidden="true">' +
+        '<circle cx="12" cy="8" r="4.2"/>' +
+        '<path d="M3.5 21c0-4.7 3.8-7.5 8.5-7.5s8.5 2.8 8.5 7.5z"/></svg>';
+
+      // A leader cutout. Tries leaders/<name>.png, falls back to a labeled silhouette.
+      function leaderEl(leader, color) {
+        const el = document.createElement("span");
+        el.className = "leader" + (leader.front ? " front" : "");
+        el.style.setProperty("--c", color);
+        el.title = leader.name;
+        const img = document.createElement("img");
+        img.alt = leader.name;
+        img.loading = "lazy";
+        img.src = "leaders/" + leader.name.toLowerCase() + ".png";
+        img.addEventListener("error", () => {
+          img.remove();
+          el.classList.add("ph");
+          el.insertAdjacentHTML("afterbegin", PERSON_SVG);
+        });
+        el.appendChild(img);
+        const cap = document.createElement("span");
+        cap.className = "leader-cap";
+        cap.textContent = leader.name;
+        el.appendChild(cap);
+        return el;
+      }
+
       // Build party pills once.
       PARTIES.forEach((p) => {
+        const wrap = document.createElement("span");
+        wrap.className = "party-wrap";
+
+        if (p.gone || p.leaders) {
+          const layer = document.createElement("span");
+          layer.className = "leader-layer";
+          if (p.gone) {
+            const g = document.createElement("span");
+            g.className = "leader gone";
+            g.textContent = "It's gone! 💨";
+            layer.appendChild(g);
+          } else {
+            p.leaders.forEach((l) => layer.appendChild(leaderEl(l, p.color)));
+          }
+          wrap.appendChild(layer);
+        }
+
         const b = document.createElement("button");
         b.type = "button";
         b.className = "party";
@@ -444,7 +569,8 @@
           b.setAttribute("aria-pressed", selected.has(p.id) ? "true" : "false");
           updateTally();
         });
-        partyPills.appendChild(b);
+        wrap.appendChild(b);
+        partyPills.appendChild(wrap);
       });
 
       function updateTally() {
