@@ -7,6 +7,9 @@ Everything runs in a single Cloudflare Worker (free tier):
 
 - **Static page** — minimalist verdict, served from `public/`.
 - **Public API** — `GET /api/status` (read), `POST /api/status` (admin, token-protected).
+- **Crowd-sourced jokes** — `POST /api/joke` (public, body `{"combo":["AUR","UDMR"],"joke":"..."}`)
+  lets visitors submit a joke for a party combination; stored but never shown live.
+  Review them with `GET /api/jokes` (admin token): `curl .../api/jokes -H "Authorization: Bearer $ADMIN_TOKEN"`.
 - **MCP server** — read-only `get_government_status` tool at `/mcp` (Streamable HTTP).
 
 State is one Cloudflare KV key (`current`). If KV is empty the Worker serves

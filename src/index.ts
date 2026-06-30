@@ -74,6 +74,11 @@ const EDITABLE_STR_FIELDS = ["answer", "subtitle", "primeMinister"] as const;
 const MAX_STR_LEN = 200;
 const MAX_BODY_BYTES = 2048;
 
+// Valid party ids (for validating crowd-sourced joke submissions).
+const PARTY_IDS = ["PSD", "AUR", "PNL", "USR", "SOS", "UDMR", "POT", "Minoritati"];
+const MAX_JOKE_LEN = 160;
+const JOKE_PREFIX = "joke:";
+
 // ---------------------------------------------------------------------------
 // Abuse guards
 // ---------------------------------------------------------------------------
@@ -240,6 +245,60 @@ async function handlePostStatus(
   // Invalidate the edge cache so the change is visible immediately.
   ctx.waitUntil(caches.default.delete(statusCacheKey(request)));
   return json(next);
+}
+
+// ---------------------------------------------------------------------------
+// API: /api/joke  — crowd-sourced jokes for a party combination.
+// Stored for the owner to review (GET /api/jokes, admin); never shown live,
+// so unmoderated submissions can't reach visitors.
+// ---------------------------------------------------------------------------
+
+async function handlePostJoke(request: Request, env: Env): Promise<Response> {
+  const declaredLen = Number(request.headers.get("Content-Length") ?? "0");
+  if (declaredLen > MAX_BODY_BYTES) {
+    return json({ error: "Payload too large" }, { status: 413 });
+  }
+  const body = await request.text();
+  if (body.length > MAX_BODY_BYTES) {
+    return json({ error: "Payload too large" }, { status: 413 });
+  }
+
+  let parsed: any;
+  try {
+    parsed = JSON.parse(body);
+  } catch {
+    return json({ error: "Invalid JSON body" }, { status: 400 });
+  }
+
+  const joke = typeof parsed?.joke === "string" ? parsed.joke.trim().slice(0, MAX_JOKE_LEN) : "";
+  const combo = Array.isArray(parsed?.combo)
+    ? [...new Set(parsed.combo.filter((id: unknown) => PARTY_IDS.includes(id as string)))]
+    : [];
+  if (!joke) return json({ error: "Joke required" }, { status: 400 });
+  if (combo.length < 2) return json({ error: "Pick at least two parties" }, { status: 400 });
+
+  const key = `${JOKE_PREFIX}${new Date().toISOString()}:${crypto.randomUUID()}`;
+  await env.GOV_STATUS.put(
+    key,
+    JSON.stringify({ combo, joke, at: new Date().toISOString() }),
+  );
+  return json({ ok: true });
+}
+
+async function handleGetJokes(request: Request, env: Env): Promise<Response> {
+  const auth = request.headers.get("Authorization") ?? "";
+  const token = auth.replace(/^Bearer\s+/i, "");
+  if (!env.ADMIN_TOKEN || !constantTimeEqual(token, env.ADMIN_TOKEN)) {
+    return json({ error: "Unauthorized" }, { status: 401 });
+  }
+  const list = await env.GOV_STATUS.list({ prefix: JOKE_PREFIX, limit: 200 });
+  const jokes = await Promise.all(
+    list.keys.map(async (k) => {
+      const v = await env.GOV_STATUS.get(k.name);
+      return v ? JSON.parse(v) : null;
+    }),
+  );
+  return json({ count: jokes.length, jokes: jokes.filter(Boolean) });
 }
 
 // ---------------------------------------------------------------------------
@@ -421,6 +480,16 @@ export default {
         return handlePostStatus(request, env, ctx);
       }
       return json({ error: "Method not allowed" }, { status: 405 });
+    }
+
+    if (url.pathname === "/api/joke" && request.method === "POST") {
+      if (await isRateLimited(env.WRITE_LIMITER, request, "write")) return tooManyRequests();
+      return handlePostJoke(request, env);
+    }
+
+    if (url.pathname === "/api/jokes" && request.method === "GET") {
+      if (await isRateLimited(env.READ_LIMITER, request, "read")) return tooManyRequests();
+      return handleGetJokes(request, env);
     }
 
     if (url.pathname.startsWith("/api/")) {

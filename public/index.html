@@ -394,6 +394,50 @@
         color: #ffb86b;
         max-width: 360px;
       }
+      #propose { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+      .propose-open {
+        font: inherit;
+        font-size: 0.8rem;
+        font-weight: 600;
+        background: none;
+        border: none;
+        color: var(--muted);
+        cursor: pointer;
+        text-decoration: underline dotted;
+        padding: 0;
+      }
+      .propose-open:hover { color: var(--fg); }
+      .propose-form {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        flex-wrap: wrap;
+        justify-content: center;
+        max-width: 360px;
+      }
+      .propose-form input {
+        flex: 1 1 200px;
+        min-width: 0;
+        font: inherit;
+        font-size: 0.85rem;
+        background: #16161f;
+        border: 1px solid #33334a;
+        border-radius: 999px;
+        color: var(--fg);
+        padding: 7px 14px;
+      }
+      .propose-form input:focus { outline: none; border-color: var(--ro-yellow); }
+      .propose-send {
+        font: inherit;
+        font-weight: 700;
+        font-size: 0.85rem;
+        background: var(--ro-yellow);
+        color: #1a1a1a;
+        border: none;
+        border-radius: 999px;
+        padding: 7px 16px;
+        cursor: pointer;
+      }
       .opt.anticipate { border-color: var(--ro-red); color: #ff6b7a; }
       .opt.anticipate:hover { background: var(--ro-red); color: #fff; border-color: var(--ro-red); }
       .result { font-size: clamp(1.1rem, 4vw, 1.6rem); font-weight: 600; }
@@ -423,6 +467,14 @@
           <div class="pills" id="party-pills"></div>
           <p class="tally" id="tally"></p>
           <p class="combo" id="combo" hidden></p>
+          <div id="propose" hidden>
+            <button class="propose-open" type="button" id="propose-open">✍️ Ai un banc mai bun? Propune-l.</button>
+            <form class="propose-form" id="propose-form" hidden>
+              <input id="propose-input" type="text" maxlength="160" autocomplete="off"
+                     placeholder="Bancul tau pentru combinatia asta..." />
+              <button type="submit" class="propose-send">Trimite</button>
+            </form>
+          </div>
           <button class="opt anticipate" type="button" id="btn-anticipate" hidden>Anticipate?</button>
         </div>
 
@@ -530,16 +582,20 @@
 
       // Politically "unnatural" coalitions -> a funny line imagining the government.
       // First matching pair (by order below) wins.
+      // Longer (more specific) combos first so they win over the pairs they contain.
       const COMBOS = [
-        { pair: ["AUR", "UDMR"], msg: "🤯 AUR + UDMR? Simion si Kelemen, guvern comun. Sedinte cu translator si pauza de mititei." },
-        { pair: ["SOS", "UDMR"], msg: "🍿 SOS + UDMR? Sosoaca si Kelemen la aceeasi masa. Aduceti popcorn si un extinctor." },
-        { pair: ["SOS", "USR"], msg: "📱 SOS + USR? Sosoaca si Fritz la carma. Live pe Facebook, non-stop." },
-        { pair: ["AUR", "USR"], msg: "🚲 AUR + USR? Georgescu vrea tara inapoi, Fritz vrea piste de biciclete. Spor la negocieri!" },
-        { pair: ["PSD", "USR"], msg: "🤝 PSD + USR?! Grindeanu si Fritz dau mana... apoi se verifica reciproc la ANI." },
+        { pair: ["AUR", "SOS", "POT"], msg: "🎤 AUR + SOS + POT? Guvernul live-urilor. Bugetul se voteaza pe TikTok." },
+        { pair: ["AUR", "USR", "UDMR"], msg: "🛗 AUR + USR + UDMR? Simion, Fritz si Kelemen, blocati in acelasi lift." },
+        { pair: ["PSD", "AUR", "USR"], msg: "🥊 PSD + AUR + USR? Sedinta de guvern, transmisa pe canalul de box." },
+        { pair: ["AUR", "UDMR"], msg: "🤯 AUR + UDMR? Simion si Kelemen, acelasi guvern. Prima motiune: in ce limba ne certam." },
+        { pair: ["SOS", "UDMR"], msg: "🍿 SOS + UDMR? Sosoaca si Kelemen, colegi de cabinet. Aduceti popcorn." },
+        { pair: ["SOS", "USR"], msg: "📱 SOS + USR? Sosoaca da live, Fritz da statistici. Nu se intalnesc niciodata." },
+        { pair: ["AUR", "USR"], msg: "🚲 AUR + USR? Unul vrea granitele din 1918, altul piste de biciclete pana la ele." },
+        { pair: ["PSD", "USR"], msg: "🤝 PSD + USR?! Se urasc de ani buni, dar uite-i la aceeasi masa." },
+        { pair: ["PNL", "AUR"], msg: "💛 PNL + AUR? Bolojan citeste bugetul, Simion il rupe in direct." },
+        { pair: ["PSD", "AUR"], msg: "🎭 PSD + AUR? Stanga nostalgica plus nationalistii. Ce s-ar putea strica?" },
         { pair: ["SOS", "Minoritati"], msg: "🌍 SOS, aliata cu minoritatile? Stam jos si privim." },
         { pair: ["AUR", "Minoritati"], msg: "🌍 AUR cu minoritatile? Plot twist de proportii nationale." },
-        { pair: ["PNL", "AUR"], msg: "💛 PNL + AUR? Bolojan tine discursul, Simion il intrerupe la fiecare virgula." },
-        { pair: ["PSD", "AUR"], msg: "🎭 PSD + AUR? Stanga nostalgica plus nationalisti. Ce s-ar putea strica?" },
       ];
       function comboMessage() {
         for (const c of COMBOS) {
@@ -558,6 +614,10 @@
       const partyPills = document.getElementById("party-pills");
       const tally = document.getElementById("tally");
       const combo = document.getElementById("combo");
+      const propose = document.getElementById("propose");
+      const proposeOpen = document.getElementById("propose-open");
+      const proposeForm = document.getElementById("propose-form");
+      const proposeInput = document.getElementById("propose-input");
       const btnAnticipate = document.getElementById("btn-anticipate");
       const selected = new Set();
 
@@ -680,8 +740,22 @@
         }
         // Funny line for an unnatural coalition currently selected.
         const msg = comboMessage();
-        combo.hidden = !msg;
-        if (msg) combo.textContent = msg;
+        if (msg && hasMajority) {
+          combo.textContent =
+            "🎪 Majoritate cu circul asta?! Felicitari, aveti guvern... pana la prima sedinta.";
+          combo.hidden = false;
+        } else if (msg) {
+          combo.textContent = msg;
+          combo.hidden = false;
+        } else {
+          combo.hidden = true;
+        }
+        // Let visitors propose their own joke once they've picked a combination.
+        propose.hidden = selected.size < 2;
+        if (propose.hidden) {
+          proposeForm.hidden = true;
+          proposeOpen.hidden = false;
+        }
         // Early elections only make sense when a coalition can't reach majority.
         btnAnticipate.hidden = !(selected.size > 0 && !hasMajority);
       }
@@ -714,6 +788,31 @@
       btnAnticipate.addEventListener("click", () => {
         prompt.textContent = "Esti sigur?";
         show(stepConfirm);
+      });
+
+      proposeOpen.addEventListener("click", () => {
+        proposeOpen.hidden = true;
+        proposeForm.hidden = false;
+        proposeInput.focus();
+      });
+      proposeForm.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const joke = proposeInput.value.trim();
+        if (!joke) return;
+        const comboIds = PARTIES.filter((p) => selected.has(p.id)).map((p) => p.id);
+        try {
+          await fetch("/api/joke", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ combo: comboIds, joke }),
+          });
+          showToast("Mersi! Bancul tau a fost trimis. 🙌");
+        } catch {
+          showToast("Hmm, n-a mers. Mai incearca.");
+        }
+        proposeInput.value = "";
+        proposeForm.hidden = true;
+        proposeOpen.hidden = false;
       });
 
       // Reveal the flow only when JS is available.
