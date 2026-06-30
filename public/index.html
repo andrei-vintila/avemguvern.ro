@@ -473,7 +473,7 @@
             <button class="propose-open" type="button" id="propose-open">✍️ Gluma mai buna? Zi sa vada toata lumea.</button>
             <form class="propose-form" id="propose-form" hidden>
               <input id="propose-input" type="text" maxlength="160" autocomplete="off"
-                     placeholder="Bancul tau pentru combinatia asta..." />
+                     placeholder="Gluma ta pentru combinatia asta..." />
               <button type="submit" class="propose-send">Trimite</button>
             </form>
           </div>
@@ -491,7 +491,7 @@
             <button class="propose-open" type="button" id="propose-final-open">✍️ Gluma mai buna? Zi sa vada toata lumea.</button>
             <form class="propose-form" id="propose-final-form" hidden>
               <input id="propose-final-input" type="text" maxlength="160" autocomplete="off"
-                     placeholder="Bancul tau despre alegeri anticipate..." />
+                     placeholder="Gluma ta despre alegeri anticipate..." />
               <button type="submit" class="propose-send">Trimite</button>
             </form>
           </div>
@@ -818,7 +818,7 @@
               headers: { "content-type": "application/json" },
               body: JSON.stringify({ ...payloadFn(), joke }),
             });
-            showToast("Mersi! Bancul tau a fost trimis. 🙌");
+            showToast("Mersi! Gluma ta a fost trimisa. 🙌");
           } catch {
             showToast("Hmm, n-a mers. Mai incearca.");
           }
