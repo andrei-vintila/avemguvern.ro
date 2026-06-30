@@ -133,6 +133,36 @@
       }
       #toast.show { opacity: 1; transform: translate(-50%, 0); }
 
+      /* Command tooltip on the API / MCP links */
+      #cmd-tip {
+        position: fixed;
+        z-index: 20;
+        max-width: min(90vw, 540px);
+        background: #16161f;
+        border: 1px solid #2a2a3d;
+        border-radius: 8px;
+        padding: 9px 12px;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 0.8rem;
+        color: #e6e6ea;
+        text-align: left;
+        white-space: pre-wrap;
+        word-break: break-all;
+        opacity: 0;
+        pointer-events: none;
+        transform: translateY(4px);
+        transition: opacity 0.15s ease, transform 0.15s ease;
+      }
+      #cmd-tip.show { opacity: 1; transform: translateY(0); }
+      #cmd-tip .tip-hint {
+        display: block;
+        margin-top: 6px;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        font-size: 0.72rem;
+        color: var(--muted);
+      }
+
       /* Interactive opinion flow */
       .interact {
         margin-top: 2.6em;
@@ -230,14 +260,15 @@
 
     <footer>
       <span id="updated"></span>
-      <a href="/api/status" id="api-link" title="Copy a curl command for the API">API</a>
-      <a href="/mcp" id="mcp-link" title="Copy the 'claude mcp add' command">MCP</a>
+      <a href="/api/status" id="api-link" aria-label="Copiaza comanda curl pentru API">API</a>
+      <a href="/mcp" id="mcp-link" aria-label="Copiaza comanda claude mcp add">MCP</a>
       <a class="coffee" href="https://buymeacoffee.com/andreivintila" target="_blank" rel="noopener">
         ☕ Buy me a coffee
       </a>
     </footer>
 
     <div id="toast" role="status" aria-live="polite"></div>
+    <div id="cmd-tip" role="tooltip"></div>
 
     <script>
       // Footer links copy a command instead of navigating (with a graceful
@@ -250,28 +281,56 @@
         clearTimeout(toastTimer);
         toastTimer = setTimeout(() => toast.classList.remove("show"), 2200);
       }
-      function copyOnClick(linkId, buildCmd, fallbackPath) {
-        document.getElementById(linkId).addEventListener("click", async (e) => {
+      const apiCmd = () => "curl -s " + location.origin + "/api/status";
+      const mcpCmd = () =>
+        "claude mcp add --transport http avemguvern " + location.origin + "/mcp";
+
+      // Tooltip: show the actual command + a "click to copy" hint on hover/focus.
+      const tip = document.getElementById("cmd-tip");
+      let tipFor = null;
+      function showTip(el, cmd) {
+        tipFor = el;
+        tip.textContent = cmd();
+        const hint = document.createElement("span");
+        hint.className = "tip-hint";
+        hint.textContent = "Click pentru a copia";
+        tip.appendChild(hint);
+        tip.classList.add("show");
+        // Center above the link, clamped to the viewport.
+        const r = el.getBoundingClientRect();
+        const t = tip.getBoundingClientRect();
+        let left = r.left + r.width / 2 - t.width / 2;
+        left = Math.max(8, Math.min(left, window.innerWidth - t.width - 8));
+        tip.style.left = left + "px";
+        tip.style.top = r.top - t.height - 8 + "px";
+      }
+      function hideTip(el) {
+        if (tipFor === el || !el) {
+          tip.classList.remove("show");
+          tipFor = null;
+        }
+      }
+
+      function wireLink(linkId, cmd, fallbackPath) {
+        const el = document.getElementById(linkId);
+        el.addEventListener("click", async (e) => {
           // Prevent navigation synchronously, before the async clipboard call.
           e.preventDefault();
           try {
-            await navigator.clipboard.writeText(buildCmd());
+            await navigator.clipboard.writeText(cmd());
             showToast("Comanda a fost copiata! ☕");
+            hideTip(el);
           } catch {
             window.location.href = fallbackPath;
           }
         });
+        el.addEventListener("mouseenter", () => showTip(el, cmd));
+        el.addEventListener("mouseleave", () => hideTip(el));
+        el.addEventListener("focus", () => showTip(el, cmd));
+        el.addEventListener("blur", () => hideTip(el));
       }
-      copyOnClick(
-        "api-link",
-        () => "curl -s " + location.origin + "/api/status",
-        "/api/status"
-      );
-      copyOnClick(
-        "mcp-link",
-        () => "claude mcp add --transport http avemguvern " + location.origin + "/mcp",
-        "/mcp"
-      );
+      wireLink("api-link", apiCmd, "/api/status");
+      wireLink("mcp-link", mcpCmd, "/mcp");
 
       // ---- Interactive opinion flow ----
       // Combined Parliament (Chamber of Deputies + Senate), 2024 election.
