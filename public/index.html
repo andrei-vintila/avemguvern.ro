@@ -317,8 +317,8 @@
         color: var(--fg);
         white-space: nowrap;
       }
-      .party-wrap:hover .leader,
-      .party-wrap:focus-within .leader {
+      .party-wrap:hover .leader:not(.peek),
+      .party-wrap:focus-within .leader:not(.peek) {
         transform: translateY(0) scale(1);
         opacity: 1;
       }
@@ -327,10 +327,30 @@
         transform: translateY(0) scale(1.05);
         transition-delay: 0.12s;
       }
+      /* "peek" cutout: pops up then drops back even while still hovering */
+      .leader.peek {
+        position: absolute;
+        left: 50%;
+        bottom: 0;
+        z-index: 3;
+        transform: translate(calc(-50% - 26px), 80%) scale(0.8);
+      }
+      .party-wrap:hover .leader.peek,
+      .party-wrap:focus-within .leader.peek {
+        animation: peek 1.8s ease;
+      }
+      @keyframes peek {
+        0% { opacity: 0; transform: translate(calc(-50% - 26px), 80%) scale(0.8); }
+        20% { opacity: 1; transform: translate(calc(-50% - 26px), -8%) scale(1.05); }
+        55% { opacity: 1; transform: translate(calc(-50% - 26px), -8%) scale(1.05); }
+        100% { opacity: 0; transform: translate(calc(-50% - 26px), 80%) scale(0.8); }
+      }
       @media (prefers-reduced-motion: reduce) {
         .leader { transition: opacity 0.2s ease; transform: none; }
-        .party-wrap:hover .leader,
-        .party-wrap:focus-within .leader { transform: none; }
+        .party-wrap:hover .leader:not(.peek),
+        .party-wrap:focus-within .leader:not(.peek) { transform: none; }
+        .party-wrap:hover .leader.peek,
+        .party-wrap:focus-within .leader.peek { animation: none; }
       }
       .party:hover {
         background: color-mix(in srgb, var(--c) 30%, var(--bg));
@@ -477,7 +497,7 @@
         { id: "PSD", seats: 122, color: "#EF3340", leaders: [{ name: "Grindeanu" }] },
         { id: "AUR", seats: 91, color: "#FCB21F", leaders: [{ name: "Simion" }, { name: "Georgescu", front: true }] },
         { id: "PNL", seats: 71, color: "#FDE000", leaders: [{ name: "Bolojan" }, { name: "Siegfried", front: true }] },
-        { id: "USR", seats: 59, color: "#00AAE7", leaders: [{ name: "Fritz" }] },
+        { id: "USR", seats: 59, color: "#00AAE7", leaders: [{ name: "Fritz" }, { name: "Lasconi", peek: true }] },
         { id: "SOS", seats: 40, color: "#4DA9DA", leaders: [{ name: "Sosoaca" }] },
         { id: "UDMR", seats: 32, color: "#00833E", leaders: [{ name: "Kelemen" }] },
         { id: "POT", seats: 31, color: "#330099", gone: true },
@@ -536,7 +556,8 @@
       // A leader cutout. Tries leaders/<name>.png, falls back to a labeled silhouette.
       function leaderEl(leader, color) {
         const el = document.createElement("span");
-        el.className = "leader" + (leader.front ? " front" : "");
+        el.className =
+          "leader" + (leader.front ? " front" : "") + (leader.peek ? " peek" : "");
         el.style.setProperty("--c", color);
         el.title = leader.name;
         const img = document.createElement("img");
