@@ -27,7 +27,7 @@
     {
       "binding": "SUGGESTIONS",
       "database_name": "avemguvern-suggestions",
-      "database_id": "REPLACE_WITH_D1_DATABASE_ID"
+      "database_id": "a3a62f7c-5b3b-4d5e-a1bf-ebb6dcaa4f1e"
     }
   ],
   // Native per-IP rate limiting. namespace_id is any number unique to this
