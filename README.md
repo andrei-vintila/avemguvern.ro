@@ -106,6 +106,27 @@ claude mcp add --transport http avemguvern https://avemguvern.ro/mcp
 It exposes one read-only tool, `get_government_status`, that returns the current answer
 plus the raw status JSON.
 
+## Abuse protection
+
+Built into the Worker:
+
+- **Edge caching** — `GET /api/status` is cached at the Cloudflare edge for 60s
+  (`caches.default`), so a read flood hits KV at most ~once/minute. A successful
+  `POST` invalidates the cache so updates show immediately.
+- **Per-IP rate limiting** — native Workers rate-limit bindings: reads 120/min,
+  writes 10/min (the write limit also throttles token guessing). Over-limit → `429`.
+- **Hardened writes** — `POST` only accepts the known fields
+  (`hasGovernment`, `interim`, `answer`, `subtitle`, `primeMinister`) with correct
+  types, clamps strings to 200 chars, rejects bodies over 2 KB (`413`), and compares
+  the admin token in constant time. A leaked token can't store arbitrary or huge data.
+
+Recommended at the Cloudflare edge (dashboard — stops abuse *before* the Worker runs,
+which is what protects request quota and cost):
+
+- **Cache Rule** on `/api/status` so reads are served from the CDN without invoking the Worker.
+- **WAF Rate Limiting rule** (e.g. per-IP threshold on `/api/*` and `/mcp`).
+- **Bot Fight Mode** under Security → Bots.
+
 ## Buy Me a Coffee
 
 The coffee button in `public/index.html` points at

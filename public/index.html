@@ -230,7 +230,7 @@
 
     <footer>
       <span id="updated"></span>
-      <a href="/api/status">API</a>
+      <a href="/api/status" id="api-link" title="Copy a curl command for the API">API</a>
       <a href="/mcp" id="mcp-link" title="Copy the 'claude mcp add' command">MCP</a>
       <a class="coffee" href="https://buymeacoffee.com/andreivintila" target="_blank" rel="noopener">
         ☕ Buy me a coffee
@@ -240,8 +240,8 @@
     <div id="toast" role="status" aria-live="polite"></div>
 
     <script>
-      // MCP link: copy the `claude mcp add` command instead of navigating.
-      const mcpLink = document.getElementById("mcp-link");
+      // Footer links copy a command instead of navigating (with a graceful
+      // fallback to the link's href if the clipboard is unavailable).
       const toast = document.getElementById("toast");
       let toastTimer;
       function showToast(message) {
@@ -250,21 +250,28 @@
         clearTimeout(toastTimer);
         toastTimer = setTimeout(() => toast.classList.remove("show"), 2200);
       }
-      mcpLink.addEventListener("click", async (e) => {
-        // Prevent navigation synchronously, before the async clipboard call.
-        e.preventDefault();
-        const cmd =
-          "claude mcp add --transport http avemguvern " +
-          location.origin +
-          "/mcp";
-        try {
-          await navigator.clipboard.writeText(cmd);
-          showToast("Comanda a fost copiata! ☕");
-        } catch {
-          // Clipboard unavailable — fall back to the /mcp info page.
-          window.location.href = "/mcp";
-        }
-      });
+      function copyOnClick(linkId, buildCmd, fallbackPath) {
+        document.getElementById(linkId).addEventListener("click", async (e) => {
+          // Prevent navigation synchronously, before the async clipboard call.
+          e.preventDefault();
+          try {
+            await navigator.clipboard.writeText(buildCmd());
+            showToast("Comanda a fost copiata! ☕");
+          } catch {
+            window.location.href = fallbackPath;
+          }
+        });
+      }
+      copyOnClick(
+        "api-link",
+        () => "curl -s " + location.origin + "/api/status",
+        "/api/status"
+      );
+      copyOnClick(
+        "mcp-link",
+        () => "claude mcp add --transport http avemguvern " + location.origin + "/mcp",
+        "/mcp"
+      );
 
       // ---- Interactive opinion flow ----
       // Combined Parliament (Chamber of Deputies + Senate), 2024 election.

@@ -15,7 +15,25 @@
       "binding": "GOV_STATUS",
       "id": "f188c870bc9843969ab26c2d63db6b36"
     }
-  ]
+  ],
+  // Native per-IP rate limiting. namespace_id is any number unique to this
+  // account; period must be 10 or 60 (seconds).
+  "unsafe": {
+    "bindings": [
+      {
+        "name": "READ_LIMITER",
+        "type": "ratelimit",
+        "namespace_id": "1001",
+        "simple": { "limit": 120, "period": 60 }
+      },
+      {
+        "name": "WRITE_LIMITER",
+        "type": "ratelimit",
+        "namespace_id": "1002",
+        "simple": { "limit": 10, "period": 60 }
+      }
+    ]
+  }
   // ADMIN_TOKEN is set as a secret, not here:
   //   npx wrangler secret put ADMIN_TOKEN
   //

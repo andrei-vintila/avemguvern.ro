@@ -10,10 +10,19 @@
  * hardcoded DEFAULT_STATUS, so the site works before the namespace is seeded.
  */
 
+/** Cloudflare Workers native rate-limiting binding. */
+interface RateLimit {
+  limit(options: { key: string }): Promise<{ success: boolean }>;
+}
+
 export interface Env {
   ASSETS: Fetcher;
   GOV_STATUS: KVNamespace;
   ADMIN_TOKEN?: string;
+  // Optional — configured via [[unsafe.bindings]] in wrangler.jsonc.
+  // Guards degrade gracefully (no-op) if a binding is absent.
+  READ_LIMITER?: RateLimit;
+  WRITE_LIMITER?: RateLimit;
 }
 
 interface GovernmentStatus {
@@ -41,6 +50,70 @@ const CORS_HEADERS: Record<string, string> = {
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type, Authorization, Mcp-Session-Id, MCP-Protocol-Version",
 };
+
+// Only these fields may be written via POST, with the given types. Anything
+// else in the body is ignored, so a leaked token can't store arbitrary keys.
+const EDITABLE_BOOL_FIELDS = ["hasGovernment", "interim"] as const;
+const EDITABLE_STR_FIELDS = ["answer", "subtitle", "primeMinister"] as const;
+const MAX_STR_LEN = 200;
+const MAX_BODY_BYTES = 2048;
+
+// ---------------------------------------------------------------------------
+// Abuse guards
+// ---------------------------------------------------------------------------
+
+function clientKey(request: Request, route: string): string {
+  const ip = request.headers.get("CF-Connecting-IP") ?? "local";
+  return `${route}:${ip}`;
+}
+
+/** Returns true if the request should be rejected. Never throws / never blocks on limiter failure. */
+async function isRateLimited(
+  binding: RateLimit | undefined,
+  request: Request,
+  route: string,
+): Promise<boolean> {
+  if (!binding) return false;
+  try {
+    const { success } = await binding.limit({ key: clientKey(request, route) });
+    return !success;
+  } catch {
+    return false;
+  }
+}
+
+function tooManyRequests(): Response {
+  return json(
+    { error: "Too Many Requests" },
+    { status: 429, headers: { "Retry-After": "60" } },
+  );
+}
+
+/** Length-then-XOR comparison to avoid early-exit timing leaks on the token. */
+function constantTimeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let result = 0;
+  for (let i = 0; i < a.length; i++) {
+    result |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  }
+  return result === 0;
+}
+
+/** Keep only known fields with the right type; clamp string lengths. */
+function sanitizePatch(input: unknown): Partial<GovernmentStatus> {
+  const out: Partial<GovernmentStatus> = {};
+  if (typeof input !== "object" || input === null) return out;
+  const obj = input as Record<string, unknown>;
+  for (const key of EDITABLE_BOOL_FIELDS) {
+    if (typeof obj[key] === "boolean") out[key] = obj[key] as boolean;
+  }
+  for (const key of EDITABLE_STR_FIELDS) {
+    if (typeof obj[key] === "string") {
+      out[key] = (obj[key] as string).slice(0, MAX_STR_LEN);
+    }
+  }
+  return out;
+}
 
 // ---------------------------------------------------------------------------
 // Persistence helpers
@@ -75,37 +148,71 @@ function json(body: unknown, init: ResponseInit = {}): Response {
 // API: /api/status
 // ---------------------------------------------------------------------------
 
-async function handleApiStatus(request: Request, env: Env): Promise<Response> {
-  if (request.method === "GET") {
-    const status = await readStatus(env);
-    return json(status, { headers: { "Cache-Control": "public, max-age=60" } });
+/** Stable cache key for the public GET response, independent of query string. */
+function statusCacheKey(request: Request): Request {
+  const origin = new URL(request.url).origin;
+  return new Request(`${origin}/api/status`, { method: "GET" });
+}
+
+async function handleGetStatus(
+  request: Request,
+  env: Env,
+  ctx: ExecutionContext,
+): Promise<Response> {
+  // Serve floods from the edge cache so KV is read at most ~once per minute.
+  const cache = caches.default;
+  const cacheKey = statusCacheKey(request);
+  const cached = await cache.match(cacheKey);
+  if (cached) return cached;
+
+  const status = await readStatus(env);
+  const response = json(status, {
+    headers: { "Cache-Control": "public, max-age=60, s-maxage=60" },
+  });
+  ctx.waitUntil(cache.put(cacheKey, response.clone()));
+  return response;
+}
+
+async function handlePostStatus(
+  request: Request,
+  env: Env,
+  ctx: ExecutionContext,
+): Promise<Response> {
+  const auth = request.headers.get("Authorization") ?? "";
+  const token = auth.replace(/^Bearer\s+/i, "");
+  // No token configured => writes are disabled entirely.
+  if (!env.ADMIN_TOKEN || !constantTimeEqual(token, env.ADMIN_TOKEN)) {
+    return json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  if (request.method === "POST") {
-    const auth = request.headers.get("Authorization") ?? "";
-    const token = auth.replace(/^Bearer\s+/i, "");
-    if (!env.ADMIN_TOKEN || token !== env.ADMIN_TOKEN) {
-      return json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    let patch: Partial<GovernmentStatus>;
-    try {
-      patch = (await request.json()) as Partial<GovernmentStatus>;
-    } catch {
-      return json({ error: "Invalid JSON body" }, { status: 400 });
-    }
-
-    const current = await readStatus(env);
-    const next: GovernmentStatus = {
-      ...current,
-      ...patch,
-      updatedAt: new Date().toISOString(),
-    };
-    await writeStatus(env, next);
-    return json(next);
+  // Reject oversized bodies before reading them.
+  const declaredLen = Number(request.headers.get("Content-Length") ?? "0");
+  if (declaredLen > MAX_BODY_BYTES) {
+    return json({ error: "Payload too large" }, { status: 413 });
+  }
+  const body = await request.text();
+  if (body.length > MAX_BODY_BYTES) {
+    return json({ error: "Payload too large" }, { status: 413 });
   }
 
-  return json({ error: "Method not allowed" }, { status: 405 });
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(body);
+  } catch {
+    return json({ error: "Invalid JSON body" }, { status: 400 });
+  }
+
+  const patch = sanitizePatch(parsed);
+  const current = await readStatus(env);
+  const next: GovernmentStatus = {
+    ...current,
+    ...patch,
+    updatedAt: new Date().toISOString(),
+  };
+  await writeStatus(env, next);
+  // Invalidate the edge cache so the change is visible immediately.
+  ctx.waitUntil(caches.default.delete(statusCacheKey(request)));
+  return json(next);
 }
 
 // ---------------------------------------------------------------------------
@@ -269,7 +376,7 @@ async function handleMcp(request: Request, env: Env): Promise<Response> {
 // ---------------------------------------------------------------------------
 
 export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
+  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
 
     if (request.method === "OPTIONS") {
@@ -277,7 +384,16 @@ export default {
     }
 
     if (url.pathname === "/api/status") {
-      return handleApiStatus(request, env);
+      if (request.method === "GET") {
+        if (await isRateLimited(env.READ_LIMITER, request, "read")) return tooManyRequests();
+        return handleGetStatus(request, env, ctx);
+      }
+      if (request.method === "POST") {
+        // Strict limiter on writes — also throttles token guessing.
+        if (await isRateLimited(env.WRITE_LIMITER, request, "write")) return tooManyRequests();
+        return handlePostStatus(request, env, ctx);
+      }
+      return json({ error: "Method not allowed" }, { status: 405 });
     }
 
     if (url.pathname.startsWith("/api/")) {
@@ -285,6 +401,9 @@ export default {
     }
 
     if (url.pathname === "/mcp") {
+      if (request.method === "POST" && (await isRateLimited(env.READ_LIMITER, request, "read"))) {
+        return tooManyRequests();
+      }
       return handleMcp(request, env);
     }
 
