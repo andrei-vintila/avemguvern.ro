@@ -321,14 +321,11 @@
         color: var(--fg);
         white-space: nowrap;
       }
-      .party-wrap:hover .leader:not(.peek),
-      .party-wrap:focus-within .leader:not(.peek),
+      /* Explicit reveal (touch tap, via JS) — works everywhere, one at a time. */
       .party-wrap.revealed .leader:not(.peek) {
         transform: translateY(0) scale(1);
         opacity: 1;
       }
-      .party-wrap:hover .leader.front,
-      .party-wrap:focus-within .leader.front,
       .party-wrap.revealed .leader.front {
         transform: translateY(0) scale(1.05);
         transition-delay: 0.12s;
@@ -342,10 +339,26 @@
         transform: translate(calc(-50% - 26px), 80%) scale(0.8);
       }
       /* 500ms after hover: rise slowly (500ms), hold (500ms), slide down + fade (200ms). */
-      .party-wrap:hover .leader.peek,
-      .party-wrap:focus-within .leader.peek,
       .party-wrap.revealed .leader.peek {
         animation: peek 1200ms ease-in-out 500ms;
+      }
+      /* Hover/focus reveal only on true hover devices, so touch never gets a
+         stuck :hover/:focus showing cutouts — touch uses the tap path above. */
+      @media (hover: hover) {
+        .party-wrap:hover .leader:not(.peek),
+        .party-wrap:focus-within .leader:not(.peek) {
+          transform: translateY(0) scale(1);
+          opacity: 1;
+        }
+        .party-wrap:hover .leader.front,
+        .party-wrap:focus-within .leader.front {
+          transform: translateY(0) scale(1.05);
+          transition-delay: 0.12s;
+        }
+        .party-wrap:hover .leader.peek,
+        .party-wrap:focus-within .leader.peek {
+          animation: peek 1200ms ease-in-out 500ms;
+        }
       }
       @keyframes peek {
         0% { opacity: 0; transform: translate(calc(-50% - 26px), 80%) scale(0.8); }
