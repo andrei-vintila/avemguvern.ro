@@ -168,28 +168,21 @@
         width: 100%;
         max-width: 440px;
         padding: 1.9em 1.5em 1.6em;
-        background: rgba(255, 255, 255, 0.035);
+        /* Flag stripe as a background layer so it's clipped to the rounded corners. */
+        background:
+          linear-gradient(
+            to right,
+            var(--ro-blue) 0 33.33%,
+            var(--ro-yellow) 33.33% 66.66%,
+            var(--ro-red) 66.66% 100%
+          ) top center / 100% 3px no-repeat,
+          rgba(255, 255, 255, 0.035);
         border: 1px solid rgba(255, 255, 255, 0.08);
         border-radius: 18px;
         display: flex;
         flex-direction: column;
         align-items: center;
         gap: 1.1em;
-      }
-      .interact::before {
-        content: "";
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        height: 3px;
-        border-radius: 18px 18px 0 0;
-        background: linear-gradient(
-          to right,
-          var(--ro-blue) 0 33.33%,
-          var(--ro-yellow) 33.33% 66.66%,
-          var(--ro-red) 66.66% 100%
-        );
       }
       .prompt {
         font-size: clamp(1rem, 3.5vw, 1.35rem);
