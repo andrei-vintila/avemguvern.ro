@@ -335,14 +335,15 @@
         z-index: 3;
         transform: translate(calc(-50% - 26px), 80%) scale(0.8);
       }
+      /* 500ms after hover: rise slowly (500ms), hold (500ms), slide down + fade (200ms). */
       .party-wrap:hover .leader.peek,
       .party-wrap:focus-within .leader.peek {
-        animation: peek 1.8s ease;
+        animation: peek 1200ms ease-in-out 500ms;
       }
       @keyframes peek {
         0% { opacity: 0; transform: translate(calc(-50% - 26px), 80%) scale(0.8); }
-        20% { opacity: 1; transform: translate(calc(-50% - 26px), -8%) scale(1.05); }
-        55% { opacity: 1; transform: translate(calc(-50% - 26px), -8%) scale(1.05); }
+        41.67% { opacity: 1; transform: translate(calc(-50% - 26px), -8%) scale(1.05); }
+        83.33% { opacity: 1; transform: translate(calc(-50% - 26px), -8%) scale(1.05); }
         100% { opacity: 0; transform: translate(calc(-50% - 26px), 80%) scale(0.8); }
       }
       @media (prefers-reduced-motion: reduce) {
