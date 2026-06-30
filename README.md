@@ -136,8 +136,3 @@ Recommended at the Cloudflare edge (dashboard):
 > The in-Worker Cache API above is the effective edge-cache mechanism; it saves KV
 > operations but each request still counts as one Worker invocation. To cut invocations
 > themselves, use the WAF rate-limit rule.
-
-## Buy Me a Coffee
-
-The coffee button in `public/index.html` points at
-[buymeacoffee.com/andreivintila](https://buymeacoffee.com/andreivintila).
