@@ -39,8 +39,10 @@
         text-align: center;
         padding: 24px;
         position: relative;
-        overflow: hidden;
+        overflow-x: hidden;
+        overflow-y: auto;
       }
+      main { padding-bottom: 96px; }
       /* Romanian flag accent bar */
       .flag {
         position: fixed;
@@ -130,6 +132,66 @@
         z-index: 10;
       }
       #toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+      /* Interactive opinion flow */
+      .interact {
+        margin-top: 2.6em;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 1.1em;
+      }
+      .prompt {
+        font-size: clamp(1rem, 3.5vw, 1.35rem);
+        color: var(--fg);
+        opacity: 0.85;
+      }
+      .choices { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; }
+      .opt {
+        font: inherit;
+        font-weight: 600;
+        cursor: pointer;
+        background: transparent;
+        color: var(--fg);
+        border: 1.5px solid #33334a;
+        border-radius: 999px;
+        padding: 10px 20px;
+        transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+      }
+      .opt:hover { border-color: var(--ro-yellow); color: var(--ro-yellow); }
+      .pills {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        justify-content: center;
+        max-width: 580px;
+      }
+      .party {
+        font: inherit;
+        font-weight: 600;
+        font-size: 0.95rem;
+        cursor: pointer;
+        background: transparent;
+        color: var(--muted);
+        border: 1.5px solid #33334a;
+        border-radius: 999px;
+        padding: 8px 15px;
+        transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+      }
+      .party .seats { opacity: 0.6; font-weight: 500; }
+      .party:hover { color: var(--fg); border-color: #55556e; }
+      .party[aria-pressed="true"] {
+        background: var(--ro-yellow);
+        color: #1a1a1a;
+        border-color: var(--ro-yellow);
+      }
+      .party[aria-pressed="true"] .seats { opacity: 0.75; }
+      .tally { font-size: 0.9rem; color: var(--muted); }
+      .tally.majority { color: var(--ro-yellow); font-weight: 600; }
+      .opt.anticipate { border-color: var(--ro-red); color: #ff6b7a; }
+      .opt.anticipate:hover { background: var(--ro-red); color: #fff; border-color: var(--ro-red); }
+      .result { font-size: clamp(1.1rem, 4vw, 1.6rem); font-weight: 600; }
+      [hidden] { display: none !important; }
     </style>
   </head>
   <body>
@@ -140,6 +202,30 @@
       <!-- Static fallback (no-JS). Updated live from /api/status. -->
       <h1 class="answer" id="answer">Nu!</h1>
       <p class="subtitle" id="subtitle">Inca e interimar Bolojan!</p>
+
+      <div class="interact" id="interact" hidden>
+        <p class="prompt" id="prompt">Si ce parere ai?</p>
+
+        <div class="choices" id="step-opinion">
+          <button class="opt" type="button" data-act="meh">Meh, whatever.</button>
+          <button class="opt" type="button" data-act="want">Vreau guvern!</button>
+        </div>
+
+        <p class="result" id="step-meh" hidden>Sa fii sanatos!</p>
+
+        <div id="step-parties" hidden>
+          <div class="pills" id="party-pills"></div>
+          <p class="tally" id="tally"></p>
+          <button class="opt anticipate" type="button" id="btn-anticipate" hidden>Anticipate?</button>
+        </div>
+
+        <div class="choices" id="step-confirm" hidden>
+          <button class="opt" type="button" data-act="confirm-yes">Da, sa decida poporul.</button>
+          <button class="opt" type="button" data-act="confirm-no">Hai, ca am glumit cu muia aia...</button>
+        </div>
+
+        <p class="result" id="step-final" hidden>🗳️ Alegeri anticipate! Sa decida poporul.</p>
+      </div>
     </main>
 
     <footer>
@@ -179,6 +265,102 @@
           window.location.href = "/mcp";
         }
       });
+
+      // ---- Interactive opinion flow ----
+      // Combined Parliament (Chamber of Deputies + Senate), 2024 election.
+      // Total 465 seats; absolute majority = 233.
+      const PARTIES = [
+        { id: "PSD", seats: 122 },
+        { id: "AUR", seats: 91 },
+        { id: "PNL", seats: 71 },
+        { id: "USR", seats: 59 },
+        { id: "SOS", seats: 40 },
+        { id: "UDMR", seats: 32 },
+        { id: "POT", seats: 31 },
+        { id: "Minoritati", seats: 19 },
+      ];
+      const MAJORITY = 233;
+
+      const interact = document.getElementById("interact");
+      const prompt = document.getElementById("prompt");
+      const stepOpinion = document.getElementById("step-opinion");
+      const stepMeh = document.getElementById("step-meh");
+      const stepParties = document.getElementById("step-parties");
+      const stepConfirm = document.getElementById("step-confirm");
+      const stepFinal = document.getElementById("step-final");
+      const partyPills = document.getElementById("party-pills");
+      const tally = document.getElementById("tally");
+      const btnAnticipate = document.getElementById("btn-anticipate");
+      const selected = new Set();
+
+      // Build party pills once.
+      PARTIES.forEach((p) => {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.className = "party";
+        b.setAttribute("aria-pressed", "false");
+        b.dataset.party = p.id;
+        b.innerHTML = p.id + ' <span class="seats">' + p.seats + "</span>";
+        b.addEventListener("click", () => {
+          if (selected.has(p.id)) selected.delete(p.id);
+          else selected.add(p.id);
+          b.setAttribute("aria-pressed", selected.has(p.id) ? "true" : "false");
+          updateTally();
+        });
+        partyPills.appendChild(b);
+      });
+
+      function updateTally() {
+        const sum = PARTIES.filter((p) => selected.has(p.id)).reduce(
+          (n, p) => n + p.seats,
+          0
+        );
+        const hasMajority = sum >= MAJORITY;
+        tally.classList.toggle("majority", hasMajority);
+        if (selected.size === 0) {
+          tally.textContent = "0 / " + MAJORITY + " mandate pentru majoritate";
+        } else if (hasMajority) {
+          tally.textContent = sum + " / " + MAJORITY + " mandate · Majoritate! ✊";
+        } else {
+          tally.textContent =
+            sum + " / " + MAJORITY + " mandate · mai trebuie " + (MAJORITY - sum);
+        }
+        // Early elections only make sense when a coalition can't reach majority.
+        btnAnticipate.hidden = !(selected.size > 0 && !hasMajority);
+      }
+
+      function show(el) {
+        [stepOpinion, stepMeh, stepParties, stepConfirm, stepFinal].forEach(
+          (s) => (s.hidden = s !== el)
+        );
+      }
+
+      interact.addEventListener("click", (e) => {
+        const act = e.target.closest("[data-act]")?.dataset.act;
+        if (!act) return;
+        if (act === "meh") {
+          prompt.hidden = true;
+          show(stepMeh);
+        } else if (act === "want") {
+          prompt.textContent = "De care?";
+          show(stepParties);
+          updateTally();
+        } else if (act === "confirm-yes") {
+          prompt.hidden = true;
+          show(stepFinal);
+        } else if (act === "confirm-no") {
+          prompt.textContent = "De care?";
+          show(stepParties);
+        }
+      });
+
+      btnAnticipate.addEventListener("click", () => {
+        prompt.textContent = "Esti sigur?";
+        show(stepConfirm);
+      });
+
+      // Reveal the flow only when JS is available.
+      interact.hidden = false;
 
       fetch("/api/status")
         .then((r) => r.json())
