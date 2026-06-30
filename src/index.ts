@@ -135,10 +135,66 @@ function rpcError(id: unknown, code: number, message: string): Response {
   return json({ jsonrpc: "2.0", id, error: { code, message } });
 }
 
+function mcpInfoPage(origin: string): string {
+  const endpoint = `${origin}/mcp`;
+  const cmd = `claude mcp add --transport http avemguvern ${endpoint}`;
+  return `<!doctype html>
+<html lang="en"><head><meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>avemguvern.ro — MCP</title>
+<style>
+  :root { --bg:#0a0a0f; --fg:#f5f5f7; --muted:#8a8a99; --yellow:#fcd116; }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--fg);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    min-height:100dvh;display:flex;align-items:center;justify-content:center;padding:24px;line-height:1.6}
+  main{max-width:680px}
+  h1{font-size:1.5rem;margin-bottom:.5em}
+  p{color:var(--muted);margin-bottom:1.2em}
+  .label{font-size:.8rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin:1.4em 0 .5em}
+  pre{background:#16161f;border:1px solid #26263a;border-radius:10px;padding:14px 16px;overflow-x:auto;
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.9rem;color:#e6e6ea}
+  code{font-family:inherit}
+  a{color:var(--yellow);text-decoration:none}
+  .top{height:5px;width:100%;position:fixed;top:0;left:0;
+    background:linear-gradient(to right,#002b7f 0 33.33%,#fcd116 33.33% 66.66%,#ce1126 66.66% 100%)}
+</style></head>
+<body><div class="top"></div><main>
+  <h1>🏛️ avemguvern.ro — MCP server</h1>
+  <p>A read-only MCP server with one tool, <code>get_government_status</code>, that tells you whether Romania currently has a (full, non-interim) government.</p>
+
+  <div class="label">Add to Claude Code</div>
+  <pre><code>${cmd}</code></pre>
+
+  <div class="label">Add to Claude Desktop / other clients (HTTP transport)</div>
+  <pre><code>{
+  "mcpServers": {
+    "avemguvern": {
+      "type": "http",
+      "url": "${endpoint}"
+    }
+  }
+}</code></pre>
+
+  <p style="margin-top:2em"><a href="/">← Back to avemguvern.ro</a></p>
+</main></body></html>`;
+}
+
 async function handleMcp(request: Request, env: Env): Promise<Response> {
   if (request.method === "GET") {
-    // No server-initiated SSE stream in stateless mode.
-    return new Response("Method Not Allowed", { status: 405, headers: CORS_HEADERS });
+    // Browsers / humans landing on /mcp get setup instructions.
+    // MCP clients use POST; we don't offer a server-initiated SSE stream.
+    const accept = request.headers.get("Accept") ?? "";
+    const origin = new URL(request.url).origin;
+    if (accept.includes("text/html")) {
+      return new Response(mcpInfoPage(origin), {
+        headers: { "Content-Type": "text/html; charset=utf-8", ...CORS_HEADERS },
+      });
+    }
+    const cmd = `claude mcp add --transport http avemguvern ${origin}/mcp`;
+    return new Response(
+      `avemguvern.ro MCP server (read-only)\n\nAdd to Claude Code:\n  ${cmd}\n\nClients connect via HTTP POST (JSON-RPC) to ${origin}/mcp\n`,
+      { headers: { "Content-Type": "text/plain; charset=utf-8", ...CORS_HEADERS } },
+    );
   }
   if (request.method !== "POST") {
     return new Response("Method Not Allowed", { status: 405, headers: CORS_HEADERS });

@@ -97,9 +97,14 @@ curl -X POST https://avemguvern.ro/api/status \
 
 ## Using the MCP server with Claude
 
-Add a remote MCP server pointing at `https://avemguvern.ro/mcp`. It exposes one
-read-only tool, `get_government_status`, that returns the current answer plus the
-raw status JSON.
+Visit `https://avemguvern.ro/mcp` in a browser for setup instructions, or add it directly:
+
+```sh
+claude mcp add --transport http avemguvern https://avemguvern.ro/mcp
+```
+
+It exposes one read-only tool, `get_government_status`, that returns the current answer
+plus the raw status JSON.
 
 ## Buy Me a Coffee
 
