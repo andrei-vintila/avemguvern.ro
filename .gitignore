@@ -1,0 +1,10 @@
+node_modules/
+.wrangler/
+.dev.vars
+*.log
+.DS_Store
+
+# test artifacts
+.playwright-mcp/
+avemguvern-preview.png
+seed.json.bak

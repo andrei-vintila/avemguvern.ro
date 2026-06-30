@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="ro">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Avem guvern? — Romania</title>
+    <meta name="description" content="Are Romania un guvern (ne-interimar)? Raspunsul, pe scurt." />
+
+    <!-- Open Graph / link previews -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Avem guvern?" />
+    <meta property="og:description" content="Are Romania un guvern? Raspunsul, pe scurt." />
+    <meta property="og:url" content="https://avemguvern.ro" />
+    <meta name="twitter:card" content="summary" />
+
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏛️</text></svg>" />
+
+    <style>
+      :root {
+        --bg: #0a0a0f;
+        --fg: #f5f5f7;
+        --muted: #8a8a99;
+        --ro-blue: #002b7f;
+        --ro-yellow: #fcd116;
+        --ro-red: #ce1126;
+        --accent: var(--ro-yellow);
+      }
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      html, body { height: 100%; }
+      body {
+        background: var(--bg);
+        color: var(--fg);
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        min-height: 100dvh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        padding: 24px;
+        position: relative;
+        overflow: hidden;
+      }
+      /* Romanian flag accent bar */
+      .flag {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 5px;
+        background: linear-gradient(
+          to right,
+          var(--ro-blue) 0 33.33%,
+          var(--ro-yellow) 33.33% 66.66%,
+          var(--ro-red) 66.66% 100%
+        );
+      }
+      main { max-width: 720px; }
+      .question {
+        font-size: clamp(0.9rem, 3vw, 1.2rem);
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: var(--muted);
+        margin-bottom: 0.6em;
+      }
+      .answer {
+        font-size: clamp(5rem, 26vw, 14rem);
+        font-weight: 800;
+        line-height: 0.95;
+        letter-spacing: -0.02em;
+        background: linear-gradient(135deg, var(--ro-yellow), var(--ro-red));
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+        margin-bottom: 0.15em;
+      }
+      .subtitle {
+        font-size: clamp(1.1rem, 4vw, 1.9rem);
+        font-weight: 500;
+        color: var(--fg);
+        opacity: 0.92;
+      }
+      footer {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        padding: 18px 24px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 14px 20px;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.85rem;
+        color: var(--muted);
+      }
+      footer a { color: var(--muted); text-decoration: none; border-bottom: 1px dotted var(--muted); }
+      footer a:hover { color: var(--fg); }
+      .coffee {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        background: var(--ro-yellow);
+        color: #1a1a1a;
+        font-weight: 700;
+        padding: 9px 16px;
+        border-radius: 999px;
+        text-decoration: none;
+        border: none;
+      }
+      .coffee:hover { filter: brightness(1.05); }
+      @media (max-width: 520px) {
+        footer { font-size: 0.78rem; gap: 10px 14px; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="flag"></div>
+
+    <main>
+      <p class="question">Are Romania un guvern?</p>
+      <!-- Static fallback (no-JS). Updated live from /api/status. -->
+      <h1 class="answer" id="answer">Nu!</h1>
+      <p class="subtitle" id="subtitle">Inca e interimar Bolojan!</p>
+    </main>
+
+    <footer>
+      <span id="updated"></span>
+      <a href="/api/status">API</a>
+      <a href="/mcp">MCP</a>
+      <a class="coffee" href="https://buymeacoffee.com/andreivintila" target="_blank" rel="noopener">
+        ☕ Buy me a coffee
+      </a>
+    </footer>
+
+    <script>
+      fetch("/api/status")
+        .then((r) => r.json())
+        .then((s) => {
+          document.getElementById("answer").textContent = s.answer;
+          document.getElementById("subtitle").textContent = s.subtitle;
+          document.title = "Avem guvern? — " + s.answer;
+          if (s.updatedAt) {
+            const d = new Date(s.updatedAt);
+            if (!isNaN(d)) {
+              document.getElementById("updated").textContent =
+                "Actualizat: " + d.toLocaleDateString("ro-RO");
+            }
+          }
+        })
+        .catch(() => {
+          /* keep static fallback */
+        });
+    </script>
+  </body>
+</html>

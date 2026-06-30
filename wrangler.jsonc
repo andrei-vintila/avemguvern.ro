@@ -1,0 +1,27 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "avemguvern-ro",
+  "main": "src/index.ts",
+  "compatibility_date": "2025-06-01",
+  "observability": {
+    "enabled": true
+  },
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS"
+  },
+  "kv_namespaces": [
+    {
+      "binding": "GOV_STATUS",
+      // Run: npx wrangler kv namespace create GOV_STATUS
+      // then paste the returned id below.
+      "id": "REPLACE_WITH_KV_NAMESPACE_ID"
+    }
+  ]
+  // ADMIN_TOKEN is set as a secret, not here:
+  //   npx wrangler secret put ADMIN_TOKEN
+  //
+  // To attach the custom domain after the first deploy, either use the
+  // Cloudflare dashboard (Workers > your worker > Domains & Routes) or add:
+  // "routes": [{ "pattern": "avemguvern.ro", "custom_domain": true }]
+}
