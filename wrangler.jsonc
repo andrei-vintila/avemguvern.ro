@@ -13,9 +13,7 @@
   "kv_namespaces": [
     {
       "binding": "GOV_STATUS",
-      // Run: npx wrangler kv namespace create GOV_STATUS
-      // then paste the returned id below.
-      "id": "REPLACE_WITH_KV_NAMESPACE_ID"
+      "id": "f188c870bc9843969ab26c2d63db6b36"
     }
   ]
   // ADMIN_TOKEN is set as a secret, not here:
