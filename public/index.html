@@ -264,7 +264,7 @@
         align-items: flex-end;
         justify-content: center;
         pointer-events: none;
-        z-index: 5; /* above all pills (pills are z-index 1) */
+        z-index: 0; /* behind its own pill (z-index 1); the wrap's z-index lifts it above higher rows */
       }
       .leader {
         position: relative;
@@ -548,9 +548,12 @@
       }
 
       // Build party pills once.
-      PARTIES.forEach((p) => {
+      PARTIES.forEach((p, i) => {
         const wrap = document.createElement("span");
         wrap.className = "party-wrap";
+        // Increasing z-index top->bottom: a lower pill's cutout rises above the
+        // rows above it, while still tucking behind its own pill.
+        wrap.style.zIndex = String(i + 1);
 
         if (p.gone || p.leaders) {
           const layer = document.createElement("span");
