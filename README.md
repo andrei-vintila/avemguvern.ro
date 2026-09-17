@@ -109,7 +109,11 @@ curl -X POST https://avemguvern.ro/api/status \
   -d '{"hasGovernment": true, "answer": "Da!", "subtitle": "Avem guvern plin!", "interim": false, "primeMinister": "..."}'
 ```
 
-`updatedAt` is stamped automatically.
+`updatedAt` is stamped automatically with the time of the write — it is the only way
+the "Actualizat:" date in the footer moves. Deploying new code does not touch it, and
+`npm run seed` writes the `updatedAt` from `seed.json` verbatim rather than stamping it,
+so after changing the status in the repo you still need a `POST` (or an edited
+`seed.json`) for the date to catch up.
 
 ### The nominee
 

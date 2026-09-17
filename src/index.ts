@@ -67,7 +67,8 @@ const DEFAULT_STATUS: GovernmentStatus = {
   nominee: "Siegfried Muresan",
   nomineeParty: "PNL",
   interim: true,
-  updatedAt: "2026-06-30T00:00:00.000Z",
+  // Only a fallback for an empty KV: a real POST stamps this with the write time.
+  updatedAt: "2026-09-17T00:00:00.000Z",
 };
 
 const CORS_HEADERS: Record<string, string> = {
