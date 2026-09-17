@@ -2,10 +2,12 @@
 
 A one-question site: **does Romania currently have a (full, non-interim) government?**
 Current answer: **Nu! — Inca e interimar Bolojan!**
+Designated PM: **Siegfried Muresan (PNL)**, waiting on the investiture vote.
 
 Everything runs in a single Cloudflare Worker (free tier):
 
-- **Static page** — minimalist verdict, served from `public/`.
+- **Static page** — minimalist verdict, served from `public/`, plus a nominee card
+  whenever someone is designated but not yet voted in.
 - **Public API** — `GET /api/status` (read), `POST /api/status` (admin, token-protected).
 - **Crowd-sourced jokes** — `POST /api/joke` (public, body `{"combo":["AUR","UDMR"],"joke":"..."}`)
   lets visitors submit a joke for a party combination; stored but never shown live.
@@ -109,6 +111,36 @@ curl -X POST https://avemguvern.ro/api/status \
 
 `updatedAt` is stamped automatically.
 
+### The nominee
+
+`nominee` / `nomineeParty` describe the **designated** prime minister, separately from
+`primeMinister` (whoever actually runs the government right now, interim or not). While
+`nominee` is set, the page shows a card under the verdict, the MCP tool mentions the
+nomination, and the coalition builder tells you whether the coalition you picked would
+actually carry them.
+
+```sh
+# a new nomination
+curl -X POST https://avemguvern.ro/api/status \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -H 'content-type: application/json' \
+  -d '{"nominee": "Siegfried Muresan", "nomineeParty": "PNL"}'
+
+# voted in — the nominee becomes the PM and the card disappears
+curl -X POST https://avemguvern.ro/api/status \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -H 'content-type: application/json' \
+  -d '{"hasGovernment": true, "interim": false, "answer": "Da!",
+       "subtitle": "Avem guvern plin!", "primeMinister": "Siegfried Muresan",
+       "nominee": "", "nomineeParty": ""}'
+```
+
+`nomineeParty` must be one of the party ids used by the page (`PSD`, `AUR`, `PNL`,
+`USR`, `SOS`, `UDMR`, `POT`, `Minoritati`) or `""`; anything else is ignored. If the
+nominee matches a party leader the page already ships a cutout for
+(`public/leaders/`), that photo is reused in the card — otherwise it falls back to a
+silhouette.
+
 ## Using the MCP server with Claude
 
 Visit `https://avemguvern.ro/mcp` in a browser for setup instructions, or add it directly:
@@ -134,9 +166,11 @@ Built into the Worker:
 - **Per-IP rate limiting** — native Workers rate-limit bindings: reads 120/min,
   writes 10/min (the write limit also throttles token guessing). Over-limit → `429`.
 - **Hardened writes** — `POST` only accepts the known fields
-  (`hasGovernment`, `interim`, `answer`, `subtitle`, `primeMinister`) with correct
-  types, clamps strings to 200 chars, rejects bodies over 2 KB (`413`), and compares
-  the admin token in constant time. A leaked token can't store arbitrary or huge data.
+  (`hasGovernment`, `interim`, `answer`, `subtitle`, `primeMinister`, `nominee`,
+  `nomineeParty`) with correct types, clamps strings to 200 chars, rejects bodies over
+  2 KB (`413`), and compares the admin token in constant time. `nomineeParty` is an
+  enum — only a known party id or `""` is stored. A leaked token can't store arbitrary
+  or huge data.
 
 Recommended at the Cloudflare edge (dashboard):
 

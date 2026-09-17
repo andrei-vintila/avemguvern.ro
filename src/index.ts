@@ -47,7 +47,12 @@ interface GovernmentStatus {
   hasGovernment: boolean;
   answer: string;
   subtitle: string;
+  /** Who actually runs the government right now (interim or not). */
   primeMinister: string;
+  /** Designated PM waiting on the investiture vote. Empty string = nobody. */
+  nominee: string;
+  /** Party id backing the nominee (one of PARTY_IDS), or "". */
+  nomineeParty: string;
   interim: boolean;
   updatedAt: string;
 }
@@ -59,6 +64,8 @@ const DEFAULT_STATUS: GovernmentStatus = {
   answer: "Nu!",
   subtitle: "Inca e interimar Bolojan!",
   primeMinister: "Ilie Bolojan",
+  nominee: "Siegfried Muresan",
+  nomineeParty: "PNL",
   interim: true,
   updatedAt: "2026-06-30T00:00:00.000Z",
 };
@@ -72,7 +79,7 @@ const CORS_HEADERS: Record<string, string> = {
 // Only these fields may be written via POST, with the given types. Anything
 // else in the body is ignored, so a leaked token can't store arbitrary keys.
 const EDITABLE_BOOL_FIELDS = ["hasGovernment", "interim"] as const;
-const EDITABLE_STR_FIELDS = ["answer", "subtitle", "primeMinister"] as const;
+const EDITABLE_STR_FIELDS = ["answer", "subtitle", "primeMinister", "nominee"] as const;
 const MAX_STR_LEN = 200;
 const MAX_BODY_BYTES = 2048;
 
@@ -142,6 +149,11 @@ function sanitizePatch(input: unknown): Partial<GovernmentStatus> {
     if (typeof obj[key] === "string") {
       out[key] = (obj[key] as string).slice(0, MAX_STR_LEN);
     }
+  }
+  // nomineeParty is an enum, not free text: only a known party id, or "" to clear.
+  if (typeof obj.nomineeParty === "string") {
+    const party = obj.nomineeParty.trim();
+    if (party === "" || PARTY_IDS.includes(party)) out.nomineeParty = party;
   }
   return out;
 }
@@ -325,7 +337,8 @@ const GET_STATUS_TOOL = {
   title: "Get Romania's government status",
   description:
     "Returns whether Romania currently has a full (non-interim) government, " +
-    "including the current prime minister and a human-readable answer in Romanian.",
+    "including the current prime minister, the prime-minister nominee still " +
+    "awaiting the investiture vote (if any), and a human-readable answer in Romanian.",
   inputSchema: {
     type: "object",
     properties: {},
@@ -448,9 +461,16 @@ async function handleMcp(request: Request, env: Env): Promise<Response> {
         return rpcError(id, -32602, `Unknown tool: ${name}`);
       }
       const status = await readStatus(env);
-      const sentence = status.hasGovernment
+      const base = status.hasGovernment
         ? `Romania are guvern. ${status.subtitle}`
         : `Romania nu are guvern. ${status.subtitle}`;
+      // Mention the designated PM while one is pending the investiture vote.
+      const nominee = status.nominee
+        ? ` Nominalizat la Palatul Victoria: ${status.nominee}` +
+          (status.nomineeParty ? ` (${status.nomineeParty})` : "") +
+          ", in asteptarea votului de investitura."
+        : "";
+      const sentence = base + nominee;
       return rpcResult(id, {
         content: [
           { type: "text", text: sentence },

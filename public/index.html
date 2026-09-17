@@ -82,6 +82,58 @@
         color: var(--fg);
         opacity: 0.92;
       }
+      /* Designated PM waiting on the investiture vote. Hidden when there's
+         no nominee (e.g. once a government is actually voted in). */
+      .nominee {
+        margin: 1.5em auto 0;
+        display: inline-flex;
+        align-items: center;
+        gap: 13px;
+        text-align: left;
+        padding: 9px 20px 9px 9px;
+        background: rgba(255, 255, 255, 0.045);
+        border: 1px solid rgba(255, 255, 255, 0.09);
+        border-radius: 999px;
+      }
+      .nominee-photo {
+        flex: none;
+        width: 54px;
+        height: 54px;
+        border-radius: 50%;
+        overflow: hidden;
+        display: flex;
+        align-items: flex-end;
+        justify-content: center;
+        background: color-mix(in srgb, var(--ro-yellow) 18%, var(--bg));
+        box-shadow: 0 0 0 2px var(--ro-yellow);
+        animation: nominee-pulse 2.6s ease-in-out infinite;
+      }
+      /* Same framing rule as the leader cutouts: fixed box, cover, top-aligned. */
+      .nominee-photo img {
+        width: 100%;
+        height: 100%;
+        display: block;
+        object-fit: cover;
+        object-position: center top;
+      }
+      .nominee-photo svg { width: 32px; height: 32px; }
+      @keyframes nominee-pulse {
+        0%, 100% { box-shadow: 0 0 0 2px var(--ro-yellow), 0 0 0 0 rgba(252, 209, 22, 0.35); }
+        50% { box-shadow: 0 0 0 2px var(--ro-yellow), 0 0 0 7px rgba(252, 209, 22, 0); }
+      }
+      .nominee-text { display: flex; flex-direction: column; gap: 2px; }
+      .nominee-label {
+        font-size: 0.66rem;
+        text-transform: uppercase;
+        letter-spacing: 0.14em;
+        color: var(--muted);
+      }
+      .nominee-name { font-size: 1.05rem; font-weight: 700; line-height: 1.2; }
+      .nominee-meta { font-size: 0.78rem; color: var(--muted); }
+      .nominee-party {
+        font-weight: 700;
+        color: var(--np, var(--ro-yellow));
+      }
       footer {
         position: fixed;
         bottom: 0;
@@ -100,6 +152,10 @@
       footer a:hover { color: var(--fg); }
       @media (max-width: 520px) {
         footer { font-size: 0.78rem; gap: 10px 14px; }
+        .nominee { gap: 10px; padding: 8px 15px 8px 8px; border-radius: 22px; }
+        .nominee-photo { width: 46px; height: 46px; }
+        .nominee-name { font-size: 0.95rem; }
+        .nominee-meta { font-size: 0.72rem; }
         .interact { margin-top: 2.2em; padding: 1.6em 1.1em 1.4em; border-radius: 16px; }
         .pills { gap: 8px; }
         .party { padding: 7px 13px; font-size: 0.9rem; }
@@ -305,6 +361,22 @@
         display: none;
       }
       .leader.ph .leader-cap { display: block; }
+      /* The nominee's cutout gets a chip instead of the placeholder caption. */
+      .leader.is-nominee .leader-cap { display: none; }
+      .leader-badge {
+        position: absolute;
+        bottom: calc(100% + 4px);
+        left: 50%;
+        transform: translateX(-50%);
+        font-size: 0.58rem;
+        font-weight: 800;
+        white-space: nowrap;
+        color: #1a1a1a;
+        background: var(--ro-yellow);
+        padding: 1px 7px;
+        border-radius: 999px;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+      }
       .leader.gone {
         width: auto;
         height: auto;
@@ -368,6 +440,7 @@
         100% { opacity: 0; transform: translate(calc(-50% - 26px), 80%) scale(0.8); }
       }
       @media (prefers-reduced-motion: reduce) {
+        .nominee-photo { animation: none; }
         .leader { transition: opacity 0.2s ease; transform: none; }
         .party-wrap:hover .leader:not(.peek),
         .party-wrap:focus-within .leader:not(.peek),
@@ -456,6 +529,19 @@
       <h1 class="answer" id="answer">Nu!</h1>
       <p class="subtitle" id="subtitle">Inca e interimar Bolojan!</p>
 
+      <!-- Static fallback (no-JS), matching DEFAULT_STATUS. Updated live from
+           /api/status; hidden entirely when there is no nominee. -->
+      <div class="nominee" id="nominee">
+        <span class="nominee-photo" id="nominee-photo">
+          <img src="leaders/siegfried.png" alt="Siegfried Muresan" />
+        </span>
+        <span class="nominee-text">
+          <span class="nominee-label">Nominalizat la Palatul Victoria</span>
+          <span class="nominee-name" id="nominee-name">Siegfried Muresan</span>
+          <span class="nominee-meta" id="nominee-meta"><span class="nominee-party">PNL</span> · asteapta votul de investitura</span>
+        </span>
+      </div>
+
       <div class="interact" id="interact" hidden>
         <p class="prompt" id="prompt">Si ce parere ai?</p>
 
@@ -488,6 +574,7 @@
 
         <div id="step-final" hidden>
           <p class="result">👀 Presedintele priveste cu atentie si anticipatie.</p>
+          <p class="combo" id="final-nominee" hidden></p>
           <div id="propose-final">
             <button class="propose-open" type="button" id="propose-final-open">✍️ Gluma mai buna? Zi sa vada toata lumea.</button>
             <form class="propose-form" id="propose-final-form" hidden>
@@ -617,6 +704,36 @@
         return null;
       }
 
+      // ---- Nominee (designated PM, not yet voted in) ----
+      // Seeded from the static markup so the flow still reads right if the
+      // /api/status fetch fails; refreshed from the API when it lands.
+      const nomineeState = { name: "Siegfried Muresan", party: "PNL" };
+      const slug = (s) =>
+        s
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .toLowerCase()
+          .replace(/[^a-z0-9]/g, "");
+      const nameParts = (s) => s.trim().split(/\s+/).filter(Boolean);
+      // Surname for the short, chatty references in the flow.
+      const nomineeShort = () => {
+        const parts = nameParts(nomineeState.name);
+        return parts.length ? parts[parts.length - 1] : "";
+      };
+      // Match the nominee against a known party leader, so the cutout we already
+      // have (leaders/<name>.png) is reused instead of guessing a file name.
+      function nomineeLeader() {
+        const tokens = nameParts(nomineeState.name).map(slug);
+        if (!tokens.length) return null;
+        for (const p of PARTIES) {
+          if (nomineeState.party && p.id !== nomineeState.party) continue;
+          for (const l of p.leaders ?? []) {
+            if (tokens.includes(slug(l.name))) return { party: p.id, name: l.name };
+          }
+        }
+        return null;
+      }
+
       const interact = document.getElementById("interact");
       const prompt = document.getElementById("prompt");
       const stepOpinion = document.getElementById("step-opinion");
@@ -695,6 +812,7 @@
         el.className =
           "leader" + (leader.front ? " front" : "") + (leader.peek ? " peek" : "");
         el.style.setProperty("--c", color);
+        el.dataset.leader = slug(leader.name);
         el.title = leader.name;
         const img = document.createElement("img");
         img.alt = leader.name;
@@ -761,6 +879,26 @@
         partyPills.appendChild(wrap);
       });
 
+      // A majority is only half the story while someone is waiting to be voted
+      // in — say whether this coalition would actually carry the nominee.
+      function majorityNomineeMessage(hasMajority) {
+        if (!hasMajority || !nomineeState.name) return null;
+        const who = nomineeShort();
+        if (!nomineeState.party) {
+          return "🗳️ Majoritate! Mai lipseste doar votul pentru " + who + ".";
+        }
+        if (selected.has(nomineeState.party)) {
+          return (
+            "✅ Majoritate cu " + nomineeState.party + " la masa. " + who +
+            " ar avea cu cine. Mai lipseste doar votul de investitura."
+          );
+        }
+        return (
+          "🪑 Majoritate fara " + nomineeState.party + "? Atunci " + who +
+          " ramane nominalizat doar pe site-ul asta."
+        );
+      }
+
       function updateTally() {
         const sum = PARTIES.filter((p) => selected.has(p.id)).reduce(
           (n, p) => n + p.seats,
@@ -778,12 +916,16 @@
         }
         // Funny line for an unnatural coalition currently selected.
         const msg = comboMessage();
+        const nomineeMsg = majorityNomineeMessage(hasMajority);
         if (msg && hasMajority) {
           combo.textContent =
             "🎪 Majoritate cu circul asta?! Felicitari, aveti guvern... pana la prima sedinta.";
           combo.hidden = false;
         } else if (msg) {
           combo.textContent = msg;
+          combo.hidden = false;
+        } else if (nomineeMsg) {
+          combo.textContent = nomineeMsg;
           combo.hidden = false;
         } else {
           combo.hidden = true;
@@ -870,8 +1012,83 @@
         () => ({ topic: "anticipate" }),
       );
 
+      // Render the nominee card from a status payload, and mark the matching
+      // cutout in the party pills. No nominee => the card disappears entirely.
+      const nomineeCard = document.getElementById("nominee");
+      const nomineePhoto = document.getElementById("nominee-photo");
+      const nomineeMeta = document.getElementById("nominee-meta");
+      const finalNominee = document.getElementById("final-nominee");
+
+      function renderNominee(s) {
+        nomineeState.name = typeof s.nominee === "string" ? s.nominee.trim() : "";
+        nomineeState.party = typeof s.nomineeParty === "string" ? s.nomineeParty.trim() : "";
+        const { name, party } = nomineeState;
+
+        // Drop any previous badge before re-marking.
+        partyPills.querySelectorAll(".leader.is-nominee").forEach((el) => {
+          el.classList.remove("is-nominee");
+          el.querySelector(".leader-badge")?.remove();
+        });
+
+        nomineeCard.hidden = !name;
+        finalNominee.hidden = !name;
+        if (!name) {
+          if (!stepParties.hidden) updateTally();
+          return;
+        }
+        finalNominee.textContent =
+          "🗳️ Si nominalizarea lui " + nomineeShort() +
+          "? Ramane in sertar pana se numara voturile.";
+
+        document.getElementById("nominee-name").textContent = name;
+
+        // Party chip, tinted with the party's own color (same palette as the pills).
+        const partyDef = PARTIES.find((p) => p.id === party);
+        nomineeCard.style.setProperty("--np", partyDef ? partyDef.color : "");
+        nomineeMeta.textContent = "";
+        if (party) {
+          const chip = document.createElement("span");
+          chip.className = "nominee-party";
+          chip.textContent = party;
+          nomineeMeta.append(chip, " · asteapta votul de investitura");
+        } else {
+          nomineeMeta.textContent = "Asteapta votul de investitura";
+        }
+
+        // Reuse the leader cutout we already ship, when the nominee is one of them.
+        const match = nomineeLeader();
+        const parts = nameParts(name);
+        const photo = match ? slug(match.name) : slug(parts[parts.length - 1] ?? "");
+        const img = document.createElement("img");
+        img.alt = name;
+        img.src = "leaders/" + photo + ".png";
+        img.addEventListener("error", () => {
+          img.remove();
+          if (!nomineePhoto.querySelector("svg")) {
+            nomineePhoto.insertAdjacentHTML("afterbegin", PERSON_SVG);
+          }
+        });
+        nomineePhoto.replaceChildren(img);
+
+        if (match && partyDef) {
+          const el = partyPills
+            .querySelector('.party[data-party="' + match.party + '"]')
+            ?.closest(".party-wrap")
+            ?.querySelector('.leader[data-leader="' + slug(match.name) + '"]');
+          if (el) {
+            el.classList.add("is-nominee");
+            const badge = document.createElement("span");
+            badge.className = "leader-badge";
+            badge.textContent = "🏛️ nominalizat";
+            el.appendChild(badge);
+          }
+        }
+        if (!stepParties.hidden) updateTally();
+      }
+
       // Reveal the flow only when JS is available.
       interact.hidden = false;
+      renderNominee({ nominee: nomineeState.name, nomineeParty: nomineeState.party });
 
       fetch("/api/status")
         .then((r) => r.json())
@@ -879,6 +1096,7 @@
           document.getElementById("answer").textContent = s.answer;
           document.getElementById("subtitle").textContent = s.subtitle;
           document.title = "Avem guvern? — " + s.answer;
+          renderNominee(s);
           if (s.updatedAt) {
             const d = new Date(s.updatedAt);
             if (!isNaN(d)) {
