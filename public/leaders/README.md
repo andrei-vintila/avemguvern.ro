@@ -17,6 +17,9 @@ public/leaders/sosoaca.png      (SOS)
 public/leaders/kelemen.png      (UDMR)
 ```
 
+The current nominee (from `/api/status`) reuses their leader cutout in the card under
+the verdict, and their pill cutout gets a "nominalizat" chip.
+
 Only use images you have the rights to. Square-ish head-and-shoulders cutouts (~256×256,
 transparent background) look best in the circular frame. POT intentionally shows
 "It's gone!" and Minoritati has no cutout.
