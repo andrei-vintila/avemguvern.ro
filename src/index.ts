@@ -67,7 +67,7 @@ const DEFAULT_STATUS: GovernmentStatus = {
   nominee: "Luca Niculescu",
   nomineeParty: "",
   interim: true,
-  updatedAt: "2026-06-30T00:00:00.000Z",
+  updatedAt: "2026-10-07T17:22:08.000Z",
 };
 
 const CORS_HEADERS: Record<string, string> = {
