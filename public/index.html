@@ -1327,13 +1327,13 @@
       pastToggle.addEventListener("click", () => setPastOpen(pastList.hidden));
 
       const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-      let spotlight = null;
       function stopIntro() {
         if (!introRunning) return;
         introAbort = true;
-        spotlight?.getAnimations().forEach((a) => a.cancel());
-        spotlight?.remove();
-        spotlight = null;
+        deck.querySelectorAll(".spotlight").forEach((el) => {
+          el.getAnimations().forEach((a) => a.cancel());
+          el.remove();
+        });
       }
       // Out of the deck: rise from just behind the current card, and back.
       // Opacity settles early so the two cards are only see-through for a moment.
@@ -1347,29 +1347,36 @@
         { opacity: 1, offset: 0.7 },
         { opacity: 0, transform: "translateY(-10px) scale(0.92)" },
       ];
-      // One at a time, oldest first: out of the deck, crossed out + stamped, back.
+      // One at a time, oldest first: out of the deck, crossed out + stamped. Each
+      // card slides in on top of the previous one (which only goes away once
+      // covered), so the current nominee stays hidden until the very end.
       async function playIntro() {
         if (!pastShown.length || reduceMotion || nomineeCard.hidden || !pastList.hidden) return;
         introRunning = true;
         introAbort = false;
+        let prev = null;
         try {
           await sleep(500);
           for (const n of pastShown) {
             if (introAbort) return;
-            spotlight?.remove();
-            spotlight = pastCardEl(n);
-            spotlight.classList.add("spotlight");
-            deck.appendChild(spotlight);
-            await spotlight.animate(ENTER, { duration: 420, easing: "cubic-bezier(0.2, 0.8, 0.2, 1)" }).finished;
+            const card = pastCardEl(n);
+            card.classList.add("spotlight");
+            deck.appendChild(card);
+            await card.animate(ENTER, { duration: 420, easing: "cubic-bezier(0.2, 0.8, 0.2, 1)" }).finished;
+            if (prev) {
+              const old = prev;
+              old.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 150, fill: "forwards" })
+                .finished.then(() => old.remove(), () => old.remove());
+            }
+            prev = card;
             await sleep(250);
             if (introAbort) return;
-            spotlight.classList.add("crossed");
+            card.classList.add("crossed");
             await sleep(2400);
-            if (introAbort) return;
-            await spotlight.animate(EXIT, { duration: 320, easing: "cubic-bezier(0.4, 0, 1, 1)", fill: "forwards" }).finished;
           }
-          spotlight?.remove();
-          spotlight = null;
+          if (introAbort || !prev) return;
+          await prev.animate(EXIT, { duration: 320, easing: "cubic-bezier(0.4, 0, 1, 1)", fill: "forwards" }).finished;
+          prev.remove();
           nomineeCard.animate(
             [{ transform: "translateY(-8px) scale(1.04)" }, { transform: "none" }],
             { duration: 450, easing: "cubic-bezier(0.3, 1.5, 0.5, 1)" },
