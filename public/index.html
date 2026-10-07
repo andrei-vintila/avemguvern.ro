@@ -320,6 +320,9 @@
         transform-origin: top center;
       }
       .past-list .past-card.crossed .past-stamp { animation-delay: calc(0.5s + var(--i) * 0.08s); }
+      /* Its height is animated while the cards travel, so the content below
+         is pushed down (and pulled back up) gradually. */
+      .past-wrap { display: flow-root; width: 100%; }
       /* While the list is open the deck is dealt out: nothing stacked behind. */
       .deck.fanned .past-card.in-deck { visibility: hidden; }
       .past-list .past-stamp { display: inline-block; }
@@ -735,7 +738,9 @@
       </div>
       </div>
         <button class="past-toggle" type="button" id="past-toggle" aria-expanded="false" hidden></button>
-        <ol class="past-list" id="past-list" aria-label="Nominalizari picate" hidden></ol>
+        <div class="past-wrap" id="past-wrap">
+          <ol class="past-list" id="past-list" aria-label="Nominalizari picate" hidden></ol>
+        </div>
       </div>
 
       <div class="interact" id="interact" hidden>
@@ -1244,6 +1249,7 @@
       const deck = document.getElementById("deck");
       const pastToggle = document.getElementById("past-toggle");
       const pastList = document.getElementById("past-list");
+      const pastWrap = document.getElementById("past-wrap");
       let pastShown = [];
       let introRunning = false;
       let introAbort = false;
@@ -1332,7 +1338,7 @@
         return `translate(${dx}px, ${from.top - to.top}px) scale(${from.width / to.width})`;
       }
       let fanSeq = 0;
-      const mainEl = document.querySelector("main");
+      let wrapAnim = null;
       let pastOpen = false;
       // Opening deals the deck out into the list; closing gathers it back.
       async function setPastOpen(open, animate = true) {
@@ -1360,40 +1366,39 @@
             ]),
           );
         const motion = animate && !reduceMotion && (open !== wasOpen || midway.some(Boolean));
-        // The page is vertically centred, so showing/hiding the list moves
-        // everything; slide the page from its old spot instead of jumping.
-        const slidePage = (before, duration) => {
-          const dy = before - mainEl.getBoundingClientRect().top;
-          if (Math.abs(dy) > 0.5) {
-            mainEl.animate([{ transform: `translateY(${dy}px)` }, { transform: "none" }], {
-              duration,
-              easing: "cubic-bezier(0.2, 0.8, 0.2, 1)",
-            });
-          }
-        };
+        // Container height: start from whatever it shows right now.
+        const h0 = pastWrap.getBoundingClientRect().height;
+        wrapAnim?.cancel();
+        const growWrap = (to, duration, easing, fill) =>
+          (wrapAnim = pastWrap.animate([{ height: h0 + "px" }, { height: to + "px" }], { duration, easing, fill }));
 
         if (open) {
-          const before = mainEl.getBoundingClientRect().top;
           pastList.hidden = false;
           deck.classList.add("fanned");
           if (!motion) return;
-          if (!wasOpen) slidePage(before, 560);
-          // Measured in the new layout; the page slide moves deck and list together.
+          const ease = "cubic-bezier(0.2, 0.8, 0.2, 1)";
+          const stagger = (i) => (midway[i] ? 0 : i * 80);
+          growWrap(pastWrap.getBoundingClientRect().height, 560 + stagger(items.length - 1), ease);
+          // Measured with the container at its starting height (first frame).
           const from = deckRects();
           items.forEach((li, i) => {
             const f = from.get(li.dataset.name);
             if (!f) return;
             const start = midway[i] ?? { transform: deckTransform(li, f.rect), opacity: f.opacity };
-            li.animate(
-              [start, { transform: "none", opacity: 1 }],
-              { duration: 560, delay: midway[i] ? 0 : i * 80, easing: "cubic-bezier(0.2, 0.8, 0.2, 1)", fill: "backwards" },
-            );
+            li.animate([start, { transform: "none", opacity: 1 }], {
+              duration: 560,
+              delay: stagger(i),
+              easing: ease,
+              fill: "backwards",
+            });
           });
           return;
         }
 
         const from = deckRects();
         if (motion) {
+          const stagger = (i) => (midway[i] ? 0 : (items.length - 1 - i) * 60);
+          growWrap(0, 420 + Math.max(0, ...items.map((_, i) => stagger(i))), "cubic-bezier(0.4, 0, 0.6, 1)", "forwards");
           // Oldest (bottom) goes first, so the cards stack back up in order.
           const anims = items.map((li, i) => {
             const f = from.get(li.dataset.name);
@@ -1405,12 +1410,7 @@
                   { opacity: f.opacity, offset: 0.75 },
                   { transform: deckTransform(li, f.rect), opacity: 0 },
                 ],
-                {
-                  duration: 420,
-                  delay: midway[i] ? 0 : (items.length - 1 - i) * 60,
-                  easing: "cubic-bezier(0.4, 0, 0.6, 1)",
-                  fill: "forwards",
-                },
+                { duration: 420, delay: stagger(i), easing: "cubic-bezier(0.4, 0, 0.6, 1)", fill: "forwards" },
               )
               .finished.catch(() => {});
           });
@@ -1418,11 +1418,10 @@
           if (seq !== fanSeq) return; // reopened mid-way
           items.forEach((li) => li.getAnimations().forEach((a) => a.cancel()));
         }
-        const before = mainEl.getBoundingClientRect().top;
         pastList.hidden = true;
+        wrapAnim?.cancel();
         deck.classList.remove("fanned");
         if (motion) {
-          slidePage(before, 380);
           // The deck fades back in under the cards that just landed on it.
           deck.querySelectorAll(".in-deck").forEach((c) => {
             const f = from.get(c.dataset.name);
