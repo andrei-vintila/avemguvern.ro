@@ -142,6 +142,14 @@ nominee matches a party leader the page already ships a cutout for
 (`public/leaders/`), that photo is reused in the card — otherwise it falls back to a
 silhouette.
 
+### Failed nominees
+
+Past nominees are stacked behind the current card. On load each one comes to the front,
+gets crossed out and stamped, then drops back; "Cimitirul nominalizarilor" lists them all.
+They live in `PAST_NOMINEES` in `public/index.html` (name, dates, stamp, joke, optional
+`leaders/<photo>.png`). When a nominee fails, add them there and set the next one via the
+API. The current nominee is never shown as failed, even if they're still in the list.
+
 ## Using the MCP server with Claude
 
 Visit `https://avemguvern.ro/mcp` in a browser for setup instructions, or add it directly:

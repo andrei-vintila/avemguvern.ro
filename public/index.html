@@ -85,13 +85,16 @@
       /* Designated PM waiting on the investiture vote. Hidden when there's
          no nominee (e.g. once a government is actually voted in). */
       .nominee {
-        margin: 1.5em auto 0;
+        position: relative;
+        z-index: 3;
         display: inline-flex;
         align-items: center;
         gap: 13px;
         text-align: left;
         padding: 9px 20px 9px 9px;
-        background: rgba(255, 255, 255, 0.045);
+        /* Opaque (not rgba) so the failed nominees stacked behind don't bleed through. */
+        background: color-mix(in srgb, #fff 4.5%, var(--bg));
+        transition: opacity 0.35s ease;
         border: 1px solid rgba(255, 255, 255, 0.09);
         border-radius: 999px;
       }
@@ -133,6 +136,184 @@
       .nominee-party {
         font-weight: 700;
         color: var(--np, var(--ro-yellow));
+      }
+      /* Failed nominees, stacked like a deck behind the current card. On load
+         each comes to the front, gets crossed out and stamped, then drops back.
+         The toggle lays them out as a list ("the graveyard"). */
+      .nominees {
+        margin-top: 1.5em;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+      }
+      .deck { position: relative; display: flex; justify-content: center; }
+      .deck.intro .nominee { opacity: 0.3; }
+      .nominee.landed { animation: nominee-land 0.55s cubic-bezier(0.3, 1.6, 0.5, 1); }
+      @keyframes nominee-land {
+        0% { transform: translateY(-14px) scale(1.06); }
+        100% { transform: none; }
+      }
+      .past-card {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        text-align: left;
+        padding: 8px 18px 8px 8px;
+        background: color-mix(in srgb, #fff 3%, var(--bg));
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 999px;
+      }
+      /* In the deck: same box as the current card, peeking out above it. */
+      .deck .past-card {
+        position: absolute;
+        inset: 0;
+        z-index: calc(3 - var(--d));
+        transform: translateY(calc(var(--d) * -9px)) scale(calc(1 - var(--d) * 0.06));
+        transform-origin: top center;
+        opacity: calc(0.95 - var(--d) * 0.2);
+        border-color: rgba(255, 255, 255, 0.16);
+        filter: grayscale(1);
+        overflow: hidden;
+        cursor: pointer;
+        transition: transform 0.35s ease, opacity 0.35s ease;
+      }
+      .deck .past-card .past-when,
+      .deck .past-card .past-joke,
+      .deck .past-card .past-stamp { display: none; }
+      /* Brought to the front during the intro: full size, joke visible. */
+      .deck .past-card.front {
+        inset: 0 auto auto 50%;
+        z-index: 6;
+        width: max-content;
+        min-width: 100%;
+        max-width: min(440px, calc(100vw - 32px));
+        transform: translateX(-50%);
+        opacity: 1;
+        filter: none;
+        overflow: visible;
+        border-radius: 22px;
+        padding-top: 16px;
+        border-color: rgba(206, 17, 38, 0.55);
+        box-shadow: 0 14px 40px rgba(0, 0, 0, 0.6);
+        animation: past-front 0.45s cubic-bezier(0.3, 1.4, 0.5, 1);
+      }
+      .deck .past-card.front .past-when,
+      .deck .past-card.front .past-joke { display: block; }
+      .deck .past-card.front .past-stamp { display: inline-block; }
+      @keyframes past-front {
+        from { transform: translate(-50%, -12px) scale(0.9); opacity: 0.4; }
+        to { transform: translateX(-50%); opacity: 1; }
+      }
+      .past-photo {
+        position: relative;
+        flex: none;
+        width: 46px;
+        height: 46px;
+        border-radius: 50%;
+        overflow: hidden;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(255, 255, 255, 0.08);
+        font-weight: 800;
+        font-size: 0.9rem;
+        color: var(--muted);
+      }
+      .past-photo img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        object-position: center top;
+        transition: filter 0.4s ease;
+      }
+      /* Big red X over the face once crossed out. */
+      .past-photo::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background:
+          linear-gradient(45deg, transparent 45%, var(--ro-red) 45% 55%, transparent 55%),
+          linear-gradient(-45deg, transparent 45%, var(--ro-red) 45% 55%, transparent 55%);
+        transform: scale(0);
+        transition: transform 0.35s cubic-bezier(0.3, 1.6, 0.5, 1) 0.25s;
+      }
+      .past-card.crossed .past-photo::after { transform: scale(1); }
+      .past-card.crossed .past-photo img { filter: grayscale(1) brightness(0.8); }
+      .past-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+      .past-when {
+        font-size: 0.62rem;
+        text-transform: uppercase;
+        letter-spacing: 0.14em;
+        color: var(--muted);
+      }
+      /* The strike draws left to right. */
+      .past-name {
+        font-weight: 700;
+        font-size: 0.98rem;
+        line-height: 1.25;
+        align-self: flex-start;
+        background: linear-gradient(var(--ro-red), var(--ro-red)) left 55% / 0% 3px no-repeat;
+        transition: background-size 0.45s ease, color 0.45s ease;
+      }
+      .past-card.crossed .past-name { background-size: 100% 3px; color: var(--muted); }
+      .past-joke { font-size: 0.8rem; line-height: 1.35; color: var(--fg); opacity: 0.85; margin-top: 2px; }
+      .past-stamp {
+        position: absolute;
+        top: -12px;
+        right: 12px;
+        padding: 1px 8px;
+        border: 2px solid var(--ro-red);
+        border-radius: 5px;
+        color: #ff4d5e;
+        background: var(--bg);
+        font-size: 0.62rem;
+        font-weight: 900;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        transform: rotate(-8deg) scale(0);
+        opacity: 0;
+      }
+      .past-card.crossed .past-stamp {
+        opacity: 1;
+        transform: rotate(-8deg) scale(1);
+        animation: stamp 0.4s cubic-bezier(0.3, 1.6, 0.5, 1) 0.45s backwards;
+      }
+      @keyframes stamp {
+        from { opacity: 0; transform: rotate(-8deg) scale(2.4); }
+        to { opacity: 1; transform: rotate(-8deg) scale(1); }
+      }
+      .past-toggle {
+        margin-top: 0.9em;
+        background: none;
+        border: none;
+        color: var(--muted);
+        font: inherit;
+        font-size: 0.8rem;
+        cursor: pointer;
+        text-decoration: underline dotted;
+        text-underline-offset: 3px;
+      }
+      .past-toggle:hover { color: var(--fg); }
+      .past-list {
+        list-style: none;
+        margin-top: 0.9em;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 20px;
+      }
+      .past-list .past-card {
+        position: relative;
+        width: min(440px, calc(100vw - 48px));
+        padding-top: 16px;
+        border-radius: 22px;
+        animation: past-in 0.4s ease backwards;
+        animation-delay: calc(var(--i) * 0.08s);
+      }
+      .past-list .past-stamp { display: inline-block; }
+      @keyframes past-in {
+        from { opacity: 0; transform: translateY(-10px); }
+        to { opacity: 1; transform: none; }
       }
       footer {
         position: fixed;
@@ -441,6 +622,8 @@
       }
       @media (prefers-reduced-motion: reduce) {
         .nominee-photo { animation: none; }
+        .nominee.landed, .past-list .past-card, .deck .past-card.front { animation: none; }
+        .past-card.crossed .past-stamp { animation: none; }
         .leader { transition: opacity 0.2s ease; transform: none; }
         .party-wrap:hover .leader:not(.peek),
         .party-wrap:focus-within .leader:not(.peek),
@@ -531,6 +714,8 @@
 
       <!-- Static fallback (no-JS), matching DEFAULT_STATUS. Updated live from
            /api/status; hidden entirely when there is no nominee. -->
+      <div class="nominees" id="nominees">
+      <div class="deck" id="deck">
       <div class="nominee" id="nominee">
         <span class="nominee-photo" id="nominee-photo">
           <img src="leaders/niculescu.png" alt="Luca Niculescu" />
@@ -540,6 +725,10 @@
           <span class="nominee-name" id="nominee-name">Luca Niculescu</span>
           <span class="nominee-meta" id="nominee-meta">Asteapta votul de investitura</span>
         </span>
+      </div>
+      </div>
+        <button class="past-toggle" type="button" id="past-toggle" aria-expanded="false" hidden></button>
+        <ol class="past-list" id="past-list" aria-label="Nominalizari picate" hidden></ol>
       </div>
 
       <div class="interact" id="interact" hidden>
@@ -1019,6 +1208,162 @@
       const nomineeMeta = document.getElementById("nominee-meta");
       const finalNominee = document.getElementById("final-nominee");
 
+      // ---- Failed nominees (the deck behind the current card) ----
+      // Oldest first. `photo` is a file in leaders/ (without .png), or null for
+      // initials. When the current nominee fails, move them here with a joke.
+      const PAST_NOMINEES = [
+        {
+          name: "Eugen Tomac",
+          photo: null,
+          when: "4 – 14 iunie",
+          stamp: "A renuntat",
+          joke: "Avea 10 zile sa gaseasca 233 de voturi. A gasit doar consultari. A predat mandatul.",
+        },
+        {
+          name: "Adrian Vestea",
+          photo: null,
+          when: "14 – 22 iunie",
+          stamp: "Respins · 189/233",
+          joke: "Vestea proasta: 189 din 233. AUR a iesit din sala ca sa nu auda vestea.",
+        },
+        {
+          name: "Siegfried Muresan",
+          photo: "siegfried",
+          when: "17 – 30 septembrie",
+          stamp: "Respins · 182/233",
+          joke: "Trei luni la coada pentru desemnare, 182 de voturi la final. Inapoi la Bruxelles, unde macar se voteaza.",
+        },
+      ];
+      const deck = document.getElementById("deck");
+      const pastToggle = document.getElementById("past-toggle");
+      const pastList = document.getElementById("past-list");
+      let pastShown = [];
+      let introRunning = false;
+      let introAbort = false;
+
+      function pastCardEl(n, extraClass) {
+        const card = document.createElement(extraClass === "li" ? "li" : "div");
+        card.className = "past-card";
+        const photo = document.createElement("span");
+        photo.className = "past-photo";
+        const initials = () => {
+          photo.textContent = nameParts(n.name).map((w) => w[0]).join("").slice(0, 2);
+        };
+        if (n.photo) {
+          const img = document.createElement("img");
+          img.alt = n.name;
+          img.src = "leaders/" + n.photo + ".png";
+          img.addEventListener("error", () => {
+            img.remove();
+            initials();
+          });
+          photo.appendChild(img);
+        } else {
+          initials();
+        }
+        const text = document.createElement("span");
+        text.className = "past-text";
+        const when = document.createElement("span");
+        when.className = "past-when";
+        when.textContent = "Nominalizat · " + n.when;
+        const name = document.createElement("span");
+        name.className = "past-name";
+        name.textContent = n.name;
+        const joke = document.createElement("span");
+        joke.className = "past-joke";
+        joke.textContent = n.joke;
+        text.append(when, name, joke);
+        const stamp = document.createElement("span");
+        stamp.className = "past-stamp";
+        stamp.textContent = n.stamp;
+        card.append(photo, text, stamp);
+        return card;
+      }
+
+      // Rebuild the deck and the list. The current nominee never shows up as
+      // failed (e.g. if the API still names someone from the list).
+      function renderPast(currentName, hasGovernment) {
+        const current = slug(currentName || "");
+        const shown = hasGovernment ? [] : PAST_NOMINEES.filter((n) => slug(n.name) !== current);
+        if (shown.length === pastShown.length && shown.every((n, i) => n === pastShown[i])) return;
+        pastShown = shown;
+        stopIntro();
+
+        deck.querySelectorAll(".past-card").forEach((el) => el.remove());
+        // Most recent failure sits right behind the current card (depth 1).
+        shown.forEach((n, i) => {
+          const card = pastCardEl(n);
+          card.style.setProperty("--d", String(Math.min(shown.length - i, 3)));
+          card.classList.add("crossed");
+          card.title = n.name + " — " + n.stamp;
+          card.addEventListener("click", () => setPastOpen(true));
+          deck.insertBefore(card, nomineeCard);
+        });
+
+        pastList.replaceChildren(
+          ...shown
+            .slice()
+            .reverse()
+            .map((n, i) => {
+              const li = pastCardEl(n, "li");
+              li.classList.add("crossed");
+              li.style.setProperty("--i", String(i));
+              return li;
+            }),
+        );
+        pastToggle.hidden = !shown.length;
+        if (!shown.length) setPastOpen(false);
+        else setPastOpen(!pastList.hidden);
+      }
+
+      function setPastOpen(open) {
+        if (open) stopIntro();
+        pastList.hidden = !open;
+        pastToggle.setAttribute("aria-expanded", String(open));
+        pastToggle.textContent = open
+          ? "Ascunde cimitirul ▴"
+          : "🪦 Cimitirul nominalizarilor (" + pastShown.length + ") ▾";
+      }
+      pastToggle.addEventListener("click", () => setPastOpen(pastList.hidden));
+
+      const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+      function stopIntro() {
+        if (!introRunning) return;
+        introAbort = true;
+        deck.classList.remove("intro");
+        deck.querySelectorAll(".past-card").forEach((c) => {
+          c.classList.remove("front");
+          c.classList.add("crossed");
+        });
+      }
+      // One at a time, oldest first: to the front, crossed out + stamped, back.
+      async function playIntro() {
+        const cards = [...deck.querySelectorAll(".past-card")];
+        if (!cards.length || reduceMotion || nomineeCard.hidden || !pastList.hidden) return;
+        introRunning = true;
+        introAbort = false;
+        cards.forEach((c) => c.classList.remove("crossed"));
+        deck.classList.add("intro");
+        await sleep(600);
+        for (const c of cards) {
+          if (introAbort) break;
+          c.classList.add("front");
+          await sleep(700);
+          if (introAbort) break;
+          c.classList.add("crossed");
+          await sleep(2500);
+          c.classList.remove("front");
+          await sleep(300);
+        }
+        introRunning = false;
+        if (introAbort) return;
+        deck.classList.remove("intro");
+        nomineeCard.classList.remove("landed");
+        void nomineeCard.offsetWidth; // restart the animation
+        nomineeCard.classList.add("landed");
+      }
+
+
       function renderNominee(s) {
         nomineeState.name = typeof s.nominee === "string" ? s.nominee.trim() : "";
         nomineeState.party = typeof s.nomineeParty === "string" ? s.nomineeParty.trim() : "";
@@ -1032,6 +1377,7 @@
 
         nomineeCard.hidden = !name;
         finalNominee.hidden = !name;
+        renderPast(name, s.hasGovernment === true);
         if (!name) {
           if (!stepParties.hidden) updateTally();
           return;
@@ -1107,7 +1453,8 @@
         })
         .catch(() => {
           /* keep static fallback */
-        });
+        })
+        .finally(playIntro);
     </script>
   </body>
 </html>
