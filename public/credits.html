@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="ro">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Foto — Avem guvern?</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏛️</text></svg>" />
+    <style>
+      :root { --bg: #0a0a0f; --fg: #f5f5f7; --muted: #8a8a99; --yellow: #fcd116; }
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body {
+        background: var(--bg);
+        color: var(--fg);
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        min-height: 100dvh;
+        display: flex;
+        justify-content: center;
+        padding: 48px 16px;
+        line-height: 1.55;
+      }
+      .top {
+        height: 5px;
+        width: 100%;
+        position: fixed;
+        top: 0;
+        left: 0;
+        background: linear-gradient(to right, #002b7f 0 33.33%, #fcd116 33.33% 66.66%, #ce1126 66.66% 100%);
+      }
+      main { max-width: 640px; width: 100%; }
+      h1 { font-size: 1.4rem; margin-bottom: 0.4em; }
+      p { color: var(--muted); margin-bottom: 1.4em; }
+      ul { list-style: none; display: flex; flex-direction: column; gap: 14px; }
+      li {
+        display: flex;
+        gap: 14px;
+        align-items: center;
+        padding: 12px 14px;
+        background: #121219;
+        border: 1px solid #22222f;
+        border-radius: 14px;
+      }
+      li img {
+        flex: none;
+        width: 52px;
+        height: 52px;
+        border-radius: 50%;
+        object-fit: cover;
+        object-position: center top;
+        background: #1c1c26;
+      }
+      .who { font-weight: 700; }
+      .meta { font-size: 0.85rem; color: var(--muted); }
+      a { color: var(--yellow); text-decoration: none; }
+      a:hover { text-decoration: underline; }
+      .back { display: inline-block; margin-top: 2em; }
+    </style>
+  </head>
+  <body>
+    <div class="top"></div>
+    <main>
+      <h1>🏛️ Foto</h1>
+      <p>Fotografii de pe Wikimedia Commons, decupate si cu fundalul eliminat pentru site.</p>
+      <ul>
+        <li>
+          <img src="leaders/tomac.png" alt="Eugen Tomac" />
+          <span>
+            <span class="who">Eugen Tomac</span><br />
+            <span class="meta">
+              © European Union 2024 – Source: EP ·
+              <a href="https://commons.wikimedia.org/wiki/File:1718281648577_20240612_TOMAC_Eugen_RO_009.jpg">Wikimedia Commons</a>
+            </span>
+          </span>
+        </li>
+        <li>
+          <img src="leaders/vestea.png" alt="Adrian Vestea" />
+          <span>
+            <span class="who">Adrian Vestea</span><br />
+            <span class="meta">
+              European People's Party (EPP) ·
+              <a href="https://creativecommons.org/licenses/by/2.0/">CC BY 2.0</a> ·
+              <a href="https://commons.wikimedia.org/wiki/Category:Adrian_Ve%C8%99tea">Wikimedia Commons</a>
+            </span>
+          </span>
+        </li>
+      </ul>
+      <a class="back" href="/">← Inapoi la avemguvern.ro</a>
+    </main>
+  </body>
+</html>
