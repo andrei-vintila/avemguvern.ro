@@ -15,10 +15,11 @@ public/leaders/siegfried.png    (PNL — comes in front)
 public/leaders/fritz.png        (USR)
 public/leaders/sosoaca.png      (SOS)
 public/leaders/kelemen.png      (UDMR)
+public/leaders/niculescu.png    (independent nominee — no pill)
 ```
 
 The current nominee (from `/api/status`) reuses their leader cutout in the card under
-the verdict, and their pill cutout gets a "nominalizat" chip.
+the verdict (or `<surname>.png` when they aren't a party leader), and their pill cutout gets a "nominalizat" chip.
 
 Only use images you have the rights to. Square-ish head-and-shoulders cutouts (~256×256,
 transparent background) look best in the circular frame. POT intentionally shows
