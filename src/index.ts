@@ -62,7 +62,7 @@ const KV_KEY = "current";
 const DEFAULT_STATUS: GovernmentStatus = {
   hasGovernment: false,
   answer: "Nu!",
-  subtitle: "Inca e interimar Bolojan!",
+  subtitle: "Inca e interimar Bolojan! Niculescu asteapta votul.",
   primeMinister: "Ilie Bolojan",
   nominee: "Luca Niculescu",
   nomineeParty: "",
