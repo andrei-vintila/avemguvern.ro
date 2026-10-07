@@ -533,12 +533,12 @@
            /api/status; hidden entirely when there is no nominee. -->
       <div class="nominee" id="nominee">
         <span class="nominee-photo" id="nominee-photo">
-          <img src="leaders/siegfried.png" alt="Siegfried Muresan" />
+          <img src="leaders/niculescu.png" alt="Luca Niculescu" />
         </span>
         <span class="nominee-text">
           <span class="nominee-label">Nominalizat la Palatul Victoria</span>
-          <span class="nominee-name" id="nominee-name">Siegfried Muresan</span>
-          <span class="nominee-meta" id="nominee-meta"><span class="nominee-party">PNL</span> · asteapta votul de investitura</span>
+          <span class="nominee-name" id="nominee-name">Luca Niculescu</span>
+          <span class="nominee-meta" id="nominee-meta">Asteapta votul de investitura</span>
         </span>
       </div>
 
@@ -707,7 +707,7 @@
       // ---- Nominee (designated PM, not yet voted in) ----
       // Seeded from the static markup so the flow still reads right if the
       // /api/status fetch fails; refreshed from the API when it lands.
-      const nomineeState = { name: "Siegfried Muresan", party: "PNL" };
+      const nomineeState = { name: "Luca Niculescu", party: "" };
       const slug = (s) =>
         s
           .normalize("NFD")

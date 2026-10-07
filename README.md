@@ -2,7 +2,7 @@
 
 A one-question site: **does Romania currently have a (full, non-interim) government?**
 Current answer: **Nu! — Inca e interimar Bolojan!**
-Designated PM: **Siegfried Muresan (PNL)**, waiting on the investiture vote.
+Designated PM: **Luca Niculescu** (independent diplomat, nominated 5 Oct 2026), waiting on the investiture vote.
 
 Everything runs in a single Cloudflare Worker (free tier):
 

@@ -64,8 +64,8 @@ const DEFAULT_STATUS: GovernmentStatus = {
   answer: "Nu!",
   subtitle: "Inca e interimar Bolojan!",
   primeMinister: "Ilie Bolojan",
-  nominee: "Siegfried Muresan",
-  nomineeParty: "PNL",
+  nominee: "Luca Niculescu",
+  nomineeParty: "",
   interim: true,
   updatedAt: "2026-06-30T00:00:00.000Z",
 };
