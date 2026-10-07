@@ -145,7 +145,15 @@
         flex-direction: column;
         align-items: center;
       }
-      .deck { position: relative; display: flex; justify-content: center; }
+      /* Room below the card for the peeking deck (set from JS by deck size). */
+      .deck {
+        position: relative;
+        display: flex;
+        justify-content: center;
+        padding-bottom: var(--peek, 0px);
+        transition: padding-bottom 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+      }
+      .deck.fanned { padding-bottom: 0; }
       .past-card {
         display: flex;
         align-items: center;
@@ -156,19 +164,21 @@
         border: 1px solid rgba(255, 255, 255, 0.08);
         border-radius: 999px;
       }
-      /* In the deck: same box as the current card, peeking out above it. */
+      /* In the deck: same box as the current card, peeking out below it. */
       .past-card.in-deck {
         position: absolute;
-        inset: 0;
+        inset: 0 0 var(--peek, 0px) 0; /* exactly the current card's box */
         z-index: calc(3 - var(--d));
-        transform: translateY(calc(var(--d) * -9px)) scale(calc(1 - var(--d) * 0.06));
-        transform-origin: top center;
+        transform: translateY(calc(var(--d) * 9px)) scale(calc(1 - var(--d) * 0.06));
+        transform-origin: bottom center;
         opacity: calc(0.95 - var(--d) * 0.2);
         border-color: rgba(255, 255, 255, 0.16);
         filter: grayscale(1);
         overflow: hidden;
         cursor: pointer;
       }
+      /* Only the edges show, so keep them clean. */
+      .past-card.in-deck > * { visibility: hidden; }
       .past-card.in-deck .past-when,
       .past-card.in-deck .past-joke,
       .past-card.in-deck .past-stamp { display: none; }
@@ -185,7 +195,7 @@
         border-radius: 22px;
         border-color: rgba(206, 17, 38, 0.55);
         box-shadow: 0 14px 40px rgba(0, 0, 0, 0.6);
-        transform-origin: top center;
+        transform-origin: bottom center;
         will-change: transform, opacity;
         pointer-events: none;
       }
@@ -1310,6 +1320,7 @@
             }),
         );
         pastToggle.hidden = !shown.length;
+        deck.style.setProperty("--peek", Math.min(shown.length, 3) * 9 + "px");
         setPastOpen(shown.length > 0 && pastOpen, false);
       }
 
@@ -1430,17 +1441,17 @@
           el.remove();
         });
       }
-      // Out of the deck: rise from just behind the current card, and back.
+      // Out of the deck: come up from just below the current card, and back.
       // Opacity settles early so the two cards are only see-through for a moment.
       const ENTER = [
-        { opacity: 0, transform: "translateY(-10px) scale(0.92)" },
+        { opacity: 0, transform: "translateY(12px) scale(0.92)" },
         { opacity: 1, offset: 0.3 },
         { opacity: 1, transform: "none" },
       ];
       const EXIT = [
         { opacity: 1, transform: "none" },
         { opacity: 1, offset: 0.7 },
-        { opacity: 0, transform: "translateY(-10px) scale(0.92)" },
+        { opacity: 0, transform: "translateY(12px) scale(0.92)" },
       ];
       // One at a time, oldest first: out of the deck, crossed out + stamped. Each
       // card slides in on top of the previous one (which only goes away once
