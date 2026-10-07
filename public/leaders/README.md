@@ -16,6 +16,8 @@ public/leaders/fritz.png        (USR)
 public/leaders/sosoaca.png      (SOS)
 public/leaders/kelemen.png      (UDMR)
 public/leaders/niculescu.png    (independent nominee — no pill)
+public/leaders/tomac.png        (failed nominee — PAST_NOMINEES)
+public/leaders/vestea.png       (failed nominee — PAST_NOMINEES)
 ```
 
 The current nominee (from `/api/status`) reuses their leader cutout in the card under
