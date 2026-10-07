@@ -94,7 +94,6 @@
         padding: 9px 20px 9px 9px;
         /* Opaque (not rgba) so the failed nominees stacked behind don't bleed through. */
         background: color-mix(in srgb, #fff 4.5%, var(--bg));
-        transition: opacity 0.35s ease;
         border: 1px solid rgba(255, 255, 255, 0.09);
         border-radius: 999px;
       }
@@ -147,12 +146,6 @@
         align-items: center;
       }
       .deck { position: relative; display: flex; justify-content: center; }
-      .deck.intro .nominee { opacity: 0.3; }
-      .nominee.landed { animation: nominee-land 0.55s cubic-bezier(0.3, 1.6, 0.5, 1); }
-      @keyframes nominee-land {
-        0% { transform: translateY(-14px) scale(1.06); }
-        100% { transform: none; }
-      }
       .past-card {
         display: flex;
         align-items: center;
@@ -164,7 +157,7 @@
         border-radius: 999px;
       }
       /* In the deck: same box as the current card, peeking out above it. */
-      .deck .past-card {
+      .past-card.in-deck {
         position: absolute;
         inset: 0;
         z-index: calc(3 - var(--d));
@@ -175,35 +168,28 @@
         filter: grayscale(1);
         overflow: hidden;
         cursor: pointer;
-        transition: transform 0.35s ease, opacity 0.35s ease;
       }
-      .deck .past-card .past-when,
-      .deck .past-card .past-joke,
-      .deck .past-card .past-stamp { display: none; }
-      /* Brought to the front during the intro: full size, joke visible. */
-      .deck .past-card.front {
-        inset: 0 auto auto 50%;
+      .past-card.in-deck .past-when,
+      .past-card.in-deck .past-joke,
+      .past-card.in-deck .past-stamp { display: none; }
+      /* The intro shows each failed nominee in a separate overlay card, so the
+         deck itself never moves; only transform/opacity are animated. */
+      .spotlight {
+        position: absolute;
+        top: 0;
+        left: 50%;
         z-index: 6;
-        width: max-content;
-        min-width: 100%;
-        max-width: min(440px, calc(100vw - 32px));
-        transform: translateX(-50%);
-        opacity: 1;
-        filter: none;
-        overflow: visible;
-        border-radius: 22px;
+        width: min(440px, calc(100vw - 32px));
+        margin-left: calc(min(440px, calc(100vw - 32px)) / -2);
         padding-top: 16px;
+        border-radius: 22px;
         border-color: rgba(206, 17, 38, 0.55);
         box-shadow: 0 14px 40px rgba(0, 0, 0, 0.6);
-        animation: past-front 0.45s cubic-bezier(0.3, 1.4, 0.5, 1);
+        transform-origin: top center;
+        will-change: transform, opacity;
+        pointer-events: none;
       }
-      .deck .past-card.front .past-when,
-      .deck .past-card.front .past-joke { display: block; }
-      .deck .past-card.front .past-stamp { display: inline-block; }
-      @keyframes past-front {
-        from { transform: translate(-50%, -12px) scale(0.9); opacity: 0.4; }
-        to { transform: translateX(-50%); opacity: 1; }
-      }
+      .spotlight .past-stamp { display: inline-block; }
       .past-photo {
         position: relative;
         flex: none;
@@ -224,7 +210,7 @@
         height: 100%;
         object-fit: cover;
         object-position: center top;
-        transition: filter 0.4s ease;
+        transition: opacity 0.4s ease;
       }
       /* Big red X over the face once crossed out. */
       .past-photo::after {
@@ -238,7 +224,7 @@
         transition: transform 0.35s cubic-bezier(0.3, 1.6, 0.5, 1) 0.25s;
       }
       .past-card.crossed .past-photo::after { transform: scale(1); }
-      .past-card.crossed .past-photo img { filter: grayscale(1) brightness(0.8); }
+      .past-card.crossed .past-photo img { opacity: 0.45; }
       .past-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
       .past-when {
         font-size: 0.62rem;
@@ -248,14 +234,28 @@
       }
       /* The strike draws left to right. */
       .past-name {
+        position: relative;
         font-weight: 700;
         font-size: 0.98rem;
         line-height: 1.25;
         align-self: flex-start;
-        background: linear-gradient(var(--ro-red), var(--ro-red)) left 55% / 0% 3px no-repeat;
-        transition: background-size 0.45s ease, color 0.45s ease;
+        transition: color 0.45s ease;
       }
-      .past-card.crossed .past-name { background-size: 100% 3px; color: var(--muted); }
+      .past-name::after {
+        content: "";
+        position: absolute;
+        left: -2px;
+        right: -2px;
+        top: 55%;
+        height: 3px;
+        border-radius: 2px;
+        background: var(--ro-red);
+        transform: scaleX(0);
+        transform-origin: left center;
+        transition: transform 0.45s cubic-bezier(0.6, 0, 0.3, 1);
+      }
+      .past-card.crossed .past-name { color: var(--muted); }
+      .past-card.crossed .past-name::after { transform: scaleX(1); }
       .past-joke { font-size: 0.8rem; line-height: 1.35; color: var(--fg); opacity: 0.85; margin-top: 2px; }
       .past-stamp {
         position: absolute;
@@ -622,7 +622,7 @@
       }
       @media (prefers-reduced-motion: reduce) {
         .nominee-photo { animation: none; }
-        .nominee.landed, .past-list .past-card, .deck .past-card.front { animation: none; }
+        .past-list .past-card { animation: none; }
         .past-card.crossed .past-stamp { animation: none; }
         .leader { transition: opacity 0.2s ease; transform: none; }
         .party-wrap:hover .leader:not(.peek),
@@ -1294,7 +1294,7 @@
         shown.forEach((n, i) => {
           const card = pastCardEl(n);
           card.style.setProperty("--d", String(Math.min(shown.length - i, 3)));
-          card.classList.add("crossed");
+          card.classList.add("crossed", "in-deck");
           card.title = n.name + " — " + n.stamp;
           card.addEventListener("click", () => setPastOpen(true));
           deck.insertBefore(card, nomineeCard);
@@ -1327,42 +1327,59 @@
       pastToggle.addEventListener("click", () => setPastOpen(pastList.hidden));
 
       const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+      let spotlight = null;
       function stopIntro() {
         if (!introRunning) return;
         introAbort = true;
-        deck.classList.remove("intro");
-        deck.querySelectorAll(".past-card").forEach((c) => {
-          c.classList.remove("front");
-          c.classList.add("crossed");
-        });
+        spotlight?.getAnimations().forEach((a) => a.cancel());
+        spotlight?.remove();
+        spotlight = null;
       }
-      // One at a time, oldest first: to the front, crossed out + stamped, back.
+      // Out of the deck: rise from just behind the current card, and back.
+      // Opacity settles early so the two cards are only see-through for a moment.
+      const ENTER = [
+        { opacity: 0, transform: "translateY(-10px) scale(0.92)" },
+        { opacity: 1, offset: 0.3 },
+        { opacity: 1, transform: "none" },
+      ];
+      const EXIT = [
+        { opacity: 1, transform: "none" },
+        { opacity: 1, offset: 0.7 },
+        { opacity: 0, transform: "translateY(-10px) scale(0.92)" },
+      ];
+      // One at a time, oldest first: out of the deck, crossed out + stamped, back.
       async function playIntro() {
-        const cards = [...deck.querySelectorAll(".past-card")];
-        if (!cards.length || reduceMotion || nomineeCard.hidden || !pastList.hidden) return;
+        if (!pastShown.length || reduceMotion || nomineeCard.hidden || !pastList.hidden) return;
         introRunning = true;
         introAbort = false;
-        cards.forEach((c) => c.classList.remove("crossed"));
-        deck.classList.add("intro");
-        await sleep(600);
-        for (const c of cards) {
-          if (introAbort) break;
-          c.classList.add("front");
-          await sleep(700);
-          if (introAbort) break;
-          c.classList.add("crossed");
-          await sleep(2500);
-          c.classList.remove("front");
-          await sleep(300);
+        try {
+          await sleep(500);
+          for (const n of pastShown) {
+            if (introAbort) return;
+            spotlight?.remove();
+            spotlight = pastCardEl(n);
+            spotlight.classList.add("spotlight");
+            deck.appendChild(spotlight);
+            await spotlight.animate(ENTER, { duration: 420, easing: "cubic-bezier(0.2, 0.8, 0.2, 1)" }).finished;
+            await sleep(250);
+            if (introAbort) return;
+            spotlight.classList.add("crossed");
+            await sleep(2400);
+            if (introAbort) return;
+            await spotlight.animate(EXIT, { duration: 320, easing: "cubic-bezier(0.4, 0, 1, 1)", fill: "forwards" }).finished;
+          }
+          spotlight?.remove();
+          spotlight = null;
+          nomineeCard.animate(
+            [{ transform: "translateY(-8px) scale(1.04)" }, { transform: "none" }],
+            { duration: 450, easing: "cubic-bezier(0.3, 1.5, 0.5, 1)" },
+          );
+        } catch {
+          /* animation cancelled by stopIntro */
+        } finally {
+          introRunning = false;
         }
-        introRunning = false;
-        if (introAbort) return;
-        deck.classList.remove("intro");
-        nomineeCard.classList.remove("landed");
-        void nomineeCard.offsetWidth; // restart the animation
-        nomineeCard.classList.add("landed");
       }
-
 
       function renderNominee(s) {
         nomineeState.name = typeof s.nominee === "string" ? s.nominee.trim() : "";
