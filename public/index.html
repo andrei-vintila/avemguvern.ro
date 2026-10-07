@@ -307,14 +307,12 @@
         width: min(440px, calc(100vw - 48px));
         padding-top: 16px;
         border-radius: 22px;
-        animation: past-in 0.4s ease backwards;
-        animation-delay: calc(var(--i) * 0.08s);
+        transform-origin: top center;
       }
+      .past-list .past-card.crossed .past-stamp { animation-delay: calc(0.5s + var(--i) * 0.08s); }
+      /* While the list is open the deck is dealt out: nothing stacked behind. */
+      .deck.fanned .past-card.in-deck { visibility: hidden; }
       .past-list .past-stamp { display: inline-block; }
-      @keyframes past-in {
-        from { opacity: 0; transform: translateY(-10px); }
-        to { opacity: 1; transform: none; }
-      }
       footer {
         position: fixed;
         bottom: 0;
@@ -622,7 +620,6 @@
       }
       @media (prefers-reduced-motion: reduce) {
         .nominee-photo { animation: none; }
-        .past-list .past-card { animation: none; }
         .past-card.crossed .past-stamp { animation: none; }
         .leader { transition: opacity 0.2s ease; transform: none; }
         .party-wrap:hover .leader:not(.peek),
@@ -1244,6 +1241,7 @@
       function pastCardEl(n, extraClass) {
         const card = document.createElement(extraClass === "li" ? "li" : "div");
         card.className = "past-card";
+        card.dataset.name = slug(n.name);
         const photo = document.createElement("span");
         photo.className = "past-photo";
         const initials = () => {
@@ -1312,19 +1310,116 @@
             }),
         );
         pastToggle.hidden = !shown.length;
-        if (!shown.length) setPastOpen(false);
-        else setPastOpen(!pastList.hidden);
+        setPastOpen(shown.length > 0 && pastOpen, false);
       }
 
-      function setPastOpen(open) {
+      // FLIP: the transform that puts a list item exactly over its deck card
+      // (top-center aligned, scaled to the deck card's width).
+      function deckTransform(li, from) {
+        const to = li.getBoundingClientRect();
+        const dx = from.left + from.width / 2 - (to.left + to.width / 2);
+        return `translate(${dx}px, ${from.top - to.top}px) scale(${from.width / to.width})`;
+      }
+      let fanSeq = 0;
+      const mainEl = document.querySelector("main");
+      let pastOpen = false;
+      // Opening deals the deck out into the list; closing gathers it back.
+      async function setPastOpen(open, animate = true) {
         if (open) stopIntro();
-        pastList.hidden = !open;
+        const seq = ++fanSeq;
+        const wasOpen = !pastList.hidden;
+        pastOpen = open;
         pastToggle.setAttribute("aria-expanded", String(open));
         pastToggle.textContent = open
           ? "Ascunde cimitirul ▴"
           : "🪦 Cimitirul nominalizarilor (" + pastShown.length + ") ▾";
+        const items = [...pastList.children];
+        // Reversing mid-way: continue from where each card is right now.
+        const midway = items.map((li) => {
+          if (!li.getAnimations().length) return null;
+          const cs = getComputedStyle(li);
+          return { transform: cs.transform, opacity: Number(cs.opacity) };
+        });
+        items.forEach((li) => li.getAnimations().forEach((a) => a.cancel()));
+        const deckRects = () =>
+          new Map(
+            [...deck.querySelectorAll(".in-deck")].map((c) => [
+              c.dataset.name,
+              { rect: c.getBoundingClientRect(), opacity: Number(getComputedStyle(c).opacity) },
+            ]),
+          );
+        const motion = animate && !reduceMotion && (open !== wasOpen || midway.some(Boolean));
+        // The page is vertically centred, so showing/hiding the list moves
+        // everything; slide the page from its old spot instead of jumping.
+        const slidePage = (before, duration) => {
+          const dy = before - mainEl.getBoundingClientRect().top;
+          if (Math.abs(dy) > 0.5) {
+            mainEl.animate([{ transform: `translateY(${dy}px)` }, { transform: "none" }], {
+              duration,
+              easing: "cubic-bezier(0.2, 0.8, 0.2, 1)",
+            });
+          }
+        };
+
+        if (open) {
+          const before = mainEl.getBoundingClientRect().top;
+          pastList.hidden = false;
+          deck.classList.add("fanned");
+          if (!motion) return;
+          if (!wasOpen) slidePage(before, 560);
+          // Measured in the new layout; the page slide moves deck and list together.
+          const from = deckRects();
+          items.forEach((li, i) => {
+            const f = from.get(li.dataset.name);
+            if (!f) return;
+            const start = midway[i] ?? { transform: deckTransform(li, f.rect), opacity: f.opacity };
+            li.animate(
+              [start, { transform: "none", opacity: 1 }],
+              { duration: 560, delay: midway[i] ? 0 : i * 80, easing: "cubic-bezier(0.2, 0.8, 0.2, 1)", fill: "backwards" },
+            );
+          });
+          return;
+        }
+
+        const from = deckRects();
+        if (motion) {
+          // Oldest (bottom) goes first, so the cards stack back up in order.
+          const anims = items.map((li, i) => {
+            const f = from.get(li.dataset.name);
+            if (!f) return Promise.resolve();
+            return li
+              .animate(
+                [
+                  midway[i] ?? { transform: "none", opacity: 1 },
+                  { opacity: f.opacity, offset: 0.75 },
+                  { transform: deckTransform(li, f.rect), opacity: 0 },
+                ],
+                {
+                  duration: 420,
+                  delay: midway[i] ? 0 : (items.length - 1 - i) * 60,
+                  easing: "cubic-bezier(0.4, 0, 0.6, 1)",
+                  fill: "forwards",
+                },
+              )
+              .finished.catch(() => {});
+          });
+          await Promise.all(anims);
+          if (seq !== fanSeq) return; // reopened mid-way
+          items.forEach((li) => li.getAnimations().forEach((a) => a.cancel()));
+        }
+        const before = mainEl.getBoundingClientRect().top;
+        pastList.hidden = true;
+        deck.classList.remove("fanned");
+        if (motion) {
+          slidePage(before, 380);
+          // The deck fades back in under the cards that just landed on it.
+          deck.querySelectorAll(".in-deck").forEach((c) => {
+            const f = from.get(c.dataset.name);
+            c.animate([{ opacity: 0 }, { opacity: f ? f.opacity : 1 }], { duration: 220, easing: "ease-out" });
+          });
+        }
       }
-      pastToggle.addEventListener("click", () => setPastOpen(pastList.hidden));
+      pastToggle.addEventListener("click", () => setPastOpen(!pastOpen));
 
       const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
       function stopIntro() {
@@ -1351,7 +1446,7 @@
       // card slides in on top of the previous one (which only goes away once
       // covered), so the current nominee stays hidden until the very end.
       async function playIntro() {
-        if (!pastShown.length || reduceMotion || nomineeCard.hidden || !pastList.hidden) return;
+        if (!pastShown.length || reduceMotion || nomineeCard.hidden || pastOpen) return;
         introRunning = true;
         introAbort = false;
         let prev = null;
