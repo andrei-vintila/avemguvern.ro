@@ -1,8 +1,8 @@
 # avemguvern.ro
 
 A one-question site: **does Romania currently have a (full, non-interim) government?**
-Current answer: **Nu! — Inca e interimar Bolojan! Niculescu asteapta votul.**
-Designated PM: **Luca Niculescu** (independent diplomat, nominated 5 Oct 2026), waiting on the investiture vote.
+Current answer: **Da! — Guvernul Niculescu a trecut cu 280 de voturi. Interimatul s-a terminat!**
+Prime minister: **Luca Niculescu** (independent diplomat), invested by Parliament on 20 Oct 2026 (280 for, 58 against).
 
 Everything runs in a single Cloudflare Worker (free tier):
 

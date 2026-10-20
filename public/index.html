@@ -719,14 +719,14 @@
     <main>
       <p class="question">Are Romania un guvern?</p>
       <!-- Static fallback (no-JS). Updated live from /api/status. -->
-      <h1 class="answer" id="answer">Nu!</h1>
-      <p class="subtitle" id="subtitle">Inca e interimar Bolojan! Niculescu asteapta votul.</p>
+      <h1 class="answer" id="answer">Da!</h1>
+      <p class="subtitle" id="subtitle">Guvernul Niculescu a trecut cu 280 de voturi. Interimatul s-a terminat!</p>
 
       <!-- Static fallback (no-JS), matching DEFAULT_STATUS. Updated live from
            /api/status; hidden entirely when there is no nominee. -->
       <div class="nominees" id="nominees">
       <div class="deck" id="deck">
-      <div class="nominee" id="nominee">
+      <div class="nominee" id="nominee" hidden>
         <span class="nominee-photo" id="nominee-photo">
           <img src="leaders/niculescu.png" alt="Luca Niculescu" />
         </span>
@@ -909,7 +909,7 @@
       // ---- Nominee (designated PM, not yet voted in) ----
       // Seeded from the static markup so the flow still reads right if the
       // /api/status fetch fails; refreshed from the API when it lands.
-      const nomineeState = { name: "Luca Niculescu", party: "" };
+      const nomineeState = { name: "", party: "" };
       const slug = (s) =>
         s
           .normalize("NFD")
@@ -1564,7 +1564,7 @@
 
       // Reveal the flow only when JS is available.
       interact.hidden = false;
-      renderNominee({ nominee: nomineeState.name, nomineeParty: nomineeState.party });
+      renderNominee({ nominee: nomineeState.name, nomineeParty: nomineeState.party, hasGovernment: true });
 
       fetch("/api/status")
         .then((r) => r.json())

@@ -1,10 +1,10 @@
 {
-  "hasGovernment": false,
-  "answer": "Nu!",
-  "subtitle": "Inca e interimar Bolojan! Niculescu asteapta votul.",
-  "primeMinister": "Ilie Bolojan",
-  "nominee": "Luca Niculescu",
+  "hasGovernment": true,
+  "answer": "Da!",
+  "subtitle": "Guvernul Niculescu a trecut cu 280 de voturi. Interimatul s-a terminat!",
+  "primeMinister": "Luca Niculescu",
+  "nominee": "",
   "nomineeParty": "",
-  "interim": true,
-  "updatedAt": "2026-10-07T17:22:08.000Z"
+  "interim": false,
+  "updatedAt": "2026-10-20T17:00:00.000Z"
 }
