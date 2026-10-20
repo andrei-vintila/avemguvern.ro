@@ -748,7 +748,7 @@
 
         <div class="choices" id="step-opinion">
           <button class="opt" type="button" data-act="meh">Meh, whatever.</button>
-          <button class="opt" type="button" data-act="want">Vreau guvern!</button>
+          <button class="opt" type="button" data-act="want" id="btn-want">Vreau alt guvern!</button>
         </div>
 
         <p class="result" id="step-meh" hidden>Sa fii sanatos!</p>
@@ -905,6 +905,15 @@
         }
         return null;
       }
+
+      // ---- Current government ----
+      // With a full government in place the flow is about replacing it ("Vreau
+      // alt guvern!"); without one, about getting one. Seeded from the static
+      // fallback, refreshed from /api/status.
+      const govState = { has: true, pm: "Luca Niculescu" };
+      // The parties that voted the current government in.
+      const GOV_BACKERS = ["PSD", "PNL", "UDMR"];
+      const partiesPrompt = () => (govState.has ? "Cu cine il inlocuim?" : "Cu ce sa fie?");
 
       // ---- Nominee (designated PM, not yet voted in) ----
       // Seeded from the static markup so the flow still reads right if the
@@ -1101,6 +1110,19 @@
         );
       }
 
+      // With a government in place, a majority means a censure motion — unless
+      // it's just the coalition we already have.
+      function majorityGovMessage(hasMajority) {
+        if (!hasMajority || !govState.has) return null;
+        const parts = nameParts(govState.pm);
+        const who = parts.length ? parts[parts.length - 1] : "guvernul";
+        const extra = [...selected].filter((id) => !GOV_BACKERS.includes(id));
+        if (GOV_BACKERS.every((id) => selected.has(id)) && extra.every((id) => id === "Minoritati")) {
+          return "😐 " + GOV_BACKERS.join(" + ") + "? Felicitari, ai reinventat guvernul " + who + ".";
+        }
+        return "📜 Majoritate! Motiune de cenzura si guvern nou. " + who + ", fa-ti bagajele.";
+      }
+
       function updateTally() {
         const sum = PARTIES.filter((p) => selected.has(p.id)).reduce(
           (n, p) => n + p.seats,
@@ -1118,6 +1140,7 @@
         }
         // Funny line for an unnatural coalition currently selected.
         const msg = comboMessage();
+        const govMsg = majorityGovMessage(hasMajority);
         const nomineeMsg = majorityNomineeMessage(hasMajority);
         if (msg && hasMajority) {
           combo.textContent =
@@ -1125,6 +1148,9 @@
           combo.hidden = false;
         } else if (msg) {
           combo.textContent = msg;
+          combo.hidden = false;
+        } else if (govMsg) {
+          combo.textContent = govMsg;
           combo.hidden = false;
         } else if (nomineeMsg) {
           combo.textContent = nomineeMsg;
@@ -1156,7 +1182,7 @@
           prompt.hidden = true;
           show(stepMeh);
         } else if (act === "want") {
-          prompt.textContent = "Cu ce sa fie?";
+          prompt.textContent = partiesPrompt();
           show(stepParties);
           updateTally();
           startIdle(); // attract loop on touch until first interaction
@@ -1165,7 +1191,7 @@
           prompt.hidden = true;
           show(stepFinal);
         } else if (act === "confirm-no") {
-          prompt.textContent = "Cu ce sa fie?";
+          prompt.textContent = partiesPrompt();
           show(stepParties);
           startIdle();
         }
@@ -1562,6 +1588,16 @@
         if (!stepParties.hidden) updateTally();
       }
 
+      function renderGov(s) {
+        govState.has = s.hasGovernment === true;
+        govState.pm = typeof s.primeMinister === "string" ? s.primeMinister.trim() : "";
+        document.getElementById("btn-want").textContent = govState.has ? "Vreau alt guvern!" : "Vreau guvern!";
+        if (!stepParties.hidden) {
+          prompt.textContent = partiesPrompt();
+          updateTally();
+        }
+      }
+
       // Reveal the flow only when JS is available.
       interact.hidden = false;
       renderNominee({ nominee: nomineeState.name, nomineeParty: nomineeState.party, hasGovernment: true });
@@ -1572,6 +1608,7 @@
           document.getElementById("answer").textContent = s.answer;
           document.getElementById("subtitle").textContent = s.subtitle;
           document.title = "Avem guvern? — " + s.answer;
+          renderGov(s);
           renderNominee(s);
           if (s.updatedAt) {
             const d = new Date(s.updatedAt);
