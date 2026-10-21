@@ -800,6 +800,12 @@
     <div id="cmd-tip" role="tooltip"></div>
 
     <script>
+      // Journey analytics. posthog.js loads deferred (and skips localhost), so
+      // look it up at call time; a no-op when it's absent or blocked.
+      function track(event, props) {
+        window.posthog?.capture?.(event, props);
+      }
+
       // Footer links copy a command instead of navigating (with a graceful
       // fallback to the link's href if the clipboard is unavailable).
       const toast = document.getElementById("toast");
@@ -848,11 +854,14 @@
         el.addEventListener("click", async (e) => {
           // Prevent navigation synchronously, before the async clipboard call.
           e.preventDefault();
+          const kind = linkId.replace("-link", "");
           try {
             await navigator.clipboard.writeText(cmd());
+            track("command_copied", { kind, ok: true });
             showToast("Comanda a fost copiata! ☕");
             hideTip(el);
           } catch {
+            track("command_copied", { kind, ok: false });
             window.location.href = fallbackPath;
           }
         });
@@ -1085,6 +1094,7 @@
           else selected.add(p.id);
           b.setAttribute("aria-pressed", selected.has(p.id) ? "true" : "false");
           updateTally();
+          track("party_toggled", { party: p.id, on: selected.has(p.id), ...coalitionProps() });
           if (!canHover) revealWrap(wrap);
         });
         wrap.appendChild(b);
@@ -1124,12 +1134,21 @@
         return "📜 Majoritate! Motiune de cenzura si guvern nou. " + who + ", fa-ti bagajele.";
       }
 
+      function coalitionProps() {
+        const parties = PARTIES.filter((p) => selected.has(p.id));
+        const seats = parties.reduce((n, p) => n + p.seats, 0);
+        return { parties: parties.map((p) => p.id), seats, majority: seats >= MAJORITY };
+      }
+
+      let hadMajority = false;
       function updateTally() {
         const sum = PARTIES.filter((p) => selected.has(p.id)).reduce(
           (n, p) => n + p.seats,
           0
         );
         const hasMajority = sum >= MAJORITY;
+        if (hasMajority && !hadMajority) track("majority_reached", coalitionProps());
+        hadMajority = hasMajority;
         tally.classList.toggle("majority", hasMajority);
         if (selected.size === 0) {
           tally.textContent = "0 / " + MAJORITY + " mandate pentru majoritate";
@@ -1178,6 +1197,11 @@
       interact.addEventListener("click", (e) => {
         const act = e.target.closest("[data-act]")?.dataset.act;
         if (!act) return;
+        if (act === "meh" || act === "want") {
+          track("opinion_selected", { choice: act });
+        } else {
+          track("early_elections_answered", { answer: act === "confirm-yes" ? "yes" : "no", ...coalitionProps() });
+        }
         if (act === "meh") {
           stopIdle();
           prompt.hidden = true;
@@ -1199,13 +1223,16 @@
       });
 
       btnAnticipate.addEventListener("click", () => {
+        track("early_elections_clicked", coalitionProps());
         stopIdle();
         prompt.textContent = "Esti sigur?";
         show(stepConfirm);
       });
 
       function wirePropose(open, form, input, payloadFn) {
+        const topic = () => payloadFn().topic ?? "combo";
         open.addEventListener("click", () => {
+          track("joke_form_opened", { topic: topic() });
           open.hidden = true;
           form.hidden = false;
           input.focus();
@@ -1214,14 +1241,18 @@
           e.preventDefault();
           const joke = input.value.trim();
           if (!joke) return;
+          // The joke text itself isn't sent to analytics, only its length.
+          const props = { topic: topic(), length: joke.length, ...payloadFn() };
           try {
-            await fetch("/api/joke", {
+            const res = await fetch("/api/joke", {
               method: "POST",
               headers: { "content-type": "application/json" },
               body: JSON.stringify({ ...payloadFn(), joke }),
             });
+            track("joke_submitted", { ...props, ok: res.ok, status: res.status });
             showToast("Mersi! Gluma ta a fost trimisa. 🙌");
           } catch {
+            track("joke_submitted", { ...props, ok: false });
             showToast("Hmm, n-a mers. Mai incearca.");
           }
           input.value = "";
@@ -1338,7 +1369,10 @@
           card.style.setProperty("--d", String(Math.min(shown.length - i, 3)));
           card.classList.add("crossed", "in-deck");
           card.title = n.name + " — " + n.stamp;
-          card.addEventListener("click", () => setPastOpen(true));
+          card.addEventListener("click", () => {
+            track("past_nominees_toggled", { open: true, via: "card" });
+            setPastOpen(true);
+          });
           deck.insertBefore(card, nomineeCard);
         });
 
@@ -1457,7 +1491,10 @@
           });
         }
       }
-      pastToggle.addEventListener("click", () => setPastOpen(!pastOpen));
+      pastToggle.addEventListener("click", () => {
+        track("past_nominees_toggled", { open: !pastOpen, via: "toggle" });
+        setPastOpen(!pastOpen);
+      });
 
       const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
       function stopIntro() {

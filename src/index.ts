@@ -491,6 +491,37 @@ async function handleMcp(request: Request, env: Env): Promise<Response> {
 }
 
 // ---------------------------------------------------------------------------
+// PostHog reverse proxy (/ingest/*), so ad blockers don't drop analytics.
+// https://posthog.com/docs/advanced/proxy/cloudflare
+// ---------------------------------------------------------------------------
+
+const POSTHOG_API_HOST = "eu.i.posthog.com";
+const POSTHOG_ASSET_HOST = "eu-assets.i.posthog.com";
+
+function handleIngest(request: Request): Promise<Response> {
+  const url = new URL(request.url);
+  const path = url.pathname.slice("/ingest".length) || "/";
+  const isStatic = path.startsWith("/static/");
+  const target = new URL(path + url.search, `https://${isStatic ? POSTHOG_ASSET_HOST : POSTHOG_API_HOST}`);
+
+  const headers = new Headers(request.headers);
+  headers.delete("cookie");
+  // Let PostHog geolocate the visitor rather than the Cloudflare edge.
+  const ip = request.headers.get("CF-Connecting-IP");
+  if (ip) headers.set("X-Forwarded-For", ip);
+
+  const hasBody = request.method !== "GET" && request.method !== "HEAD";
+  return fetch(target, {
+    method: request.method,
+    headers,
+    body: hasBody ? request.body : undefined,
+    redirect: "manual",
+    // The SDK bundle is versioned; cache it at the edge.
+    cf: isStatic ? { cacheEverything: true, cacheTtl: 3600 } : undefined,
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Router
 // ---------------------------------------------------------------------------
 
@@ -523,6 +554,10 @@ export default {
     if (url.pathname === "/api/jokes" && request.method === "GET") {
       if (await isRateLimited(env.READ_LIMITER, request, "read")) return tooManyRequests();
       return handleGetJokes(request, env);
+    }
+
+    if (url.pathname === "/ingest" || url.pathname.startsWith("/ingest/")) {
+      return handleIngest(request);
     }
 
     if (url.pathname.startsWith("/api/")) {
