@@ -4,8 +4,7 @@
 // page load counts as a new anonymous visitor.
 // The project key is public by design: https://posthog.com/docs/libraries/js
 (function () {
-  var POSTHOG_KEY = "phc_REPLACE_ME";
-  if (POSTHOG_KEY.indexOf("REPLACE_ME") !== -1) return;
+  var POSTHOG_KEY = "phc_Byag7My9B8B43jAbGePkkdiR2nGBSPBmU2P3tZumVqDr";
   if (location.hostname === "localhost" || location.hostname === "127.0.0.1") return;
 
   // Official loader snippet: queues calls until array.js arrives.
@@ -13,6 +12,7 @@
 
   posthog.init(POSTHOG_KEY, {
     api_host: "https://eu.i.posthog.com",
+    defaults: "2026-05-30",
     persistence: "memory",
     person_profiles: "identified_only",
   });
